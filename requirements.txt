@@ -1,0 +1,5 @@
+requests
+django
+bjoern
+pyTelegramBotAPI
+sentry_sdk
