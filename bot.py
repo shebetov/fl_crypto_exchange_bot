@@ -20,12 +20,15 @@ import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
 from django.core.exceptions import ObjectDoesNotExist
 from tgbot.models import *
+from prizmbit import PrizmBitAPI
+
 
 
 logging.basicConfig(format='%(levelname)-8s[%(asctime)s: (%(pathname)s)%(filename)-20s:%(lineno)-4d] %(message)s', level=(logging.DEBUG if config.DEBUG else logging.INFO), handlers=[logging.FileHandler(config.LOGS_FILE, 'a', 'utf-8')])  # , logging.StreamHandler(sys.stdout)])
 sentry_sdk.init(dsn=config.SENTRY_API_URL, integrations=[LoggingIntegration()])
 
 bot = UltraTeleBot(config.BOT_TOKEN)
+client = PrizmBitAPI(config.CLIENT_ID, config.CLIENT_SECRET)
 
 
 def get_user(user_id):
