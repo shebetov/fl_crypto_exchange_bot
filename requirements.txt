@@ -3,3 +3,6 @@ django
 bjoern
 pyTelegramBotAPI
 sentry_sdk
+matplotlib
+mpl_finance
+numpy
