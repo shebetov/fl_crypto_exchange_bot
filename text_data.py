@@ -22,7 +22,6 @@ TEXT = {
     "t_sp_co_b3": "Тип: %s",
     "t_sp_co_b4": "Акк.: %s",
     "t_sp_co_b5": "Создать",
-    "t_sp_co_b6": "Отмена",
     "t_sp_co1": "Введите кол-во",
     "t_sp_co2": "Введите цену",
     "t_sp_co3": "Введите стоп-цену",
@@ -69,5 +68,8 @@ TEXT = {
     "s_b3": "Верификация",
     "s_b3_": "Пришли данные в формате:\n\n<code>First Name\nLast Name\nMiddle Name\nBirthdate\nCitizenship\nCountry\nCity\nAddress\nPostal Code\nID Number\nID Expire Date\nID Issue Date</code>",
     "p": "Профиль",
-    "list_address_row": "   %i.  %s %s %s"
+    "list_address_row": "   %i.  %s %s %s",
+    "back_btn": "< Назад",
+    "to_main_btn": "< На главную",
+    "cancel_btn": "< Отмена"
 }
