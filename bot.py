@@ -165,19 +165,17 @@ def log_message(sender, user_id, message=None, intent=None):
         logging.error("Log Message", exc_info=True)
 
 
-def gen_csv(data, fieldnames):
-    with open('import.csv', mode='w') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(fieldnames)
-        for row in data:
-            writer.writerow([row[field] for field in fieldnames])
-
-
 # Telegram Funcs And Handlers
+
+
+def handle_api_error(user):
+    bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["api_error"])
+    reply_start(user=user)
 
 
 def try_redeem_code(user, text):
     d_redeem_code = client.post("Account/RedeemCode", Code=text)
+    if d_redeem_code is None: return handle_api_error(user)
     if "CodeId" in d_redeem_code:
         bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["redeem_code"], parse_mode="HTML")
         return True
@@ -188,7 +186,9 @@ def try_redeem_code(user, text):
 def send_exchange(user):
     kb_t = []
     kb_d = []
-    all_pairs = [x["code"] for x in client.get("MarketData/GetSymbols")]
+    d_symbols = client.get("MarketData/GetSymbols")
+    if d_symbols is None: return handle_api_error(user)
+    all_pairs = [x["code"] for x in d_symbols]
     for row in utils.chunks(all_pairs, 3):
         kb_t.append([])
         kb_d.append([])
@@ -226,7 +226,9 @@ def get_list_msg(user, data):
 def get_t_sp_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_ticker = client.get("MarketData/GetTicker", marketName=pair)
+    if d_ticker is None: return handle_api_error(user)
     d_orderbook = client.get("MarketData/GetOrderBook", market=pair, limit=4)
+    if d_orderbook is None: return handle_api_error(user)
     return (TEXT["t_sp"] % (
         pair, d_ticker["price"], d_ticker["low"], d_ticker["high"], d_ticker["volume"], d_ticker["price"],
         "\n".join(["%s     %s" % (x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
@@ -237,6 +239,7 @@ def get_t_sp_msg(user, pair):
 def get_t_sp_mo_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
+    if d_my_orders is None: return handle_api_error(user)
     d_my_orders = D_ORD
     if len(d_my_orders) == 0:
         return TEXT["t_sp_mo1"] % pair, None
@@ -285,6 +288,7 @@ def get_t_co_next_status(data):
 def get_w_b1_msg(user):
     TEXT = TEXT_ALL[user.lang]
     d_accounts = client.post("Account/GetUserBalances", data="sss")
+    if d_accounts is None: return handle_api_error(user)
     kb_t = []
     kb_d = []
     is_one_account = len(d_accounts["userAccountList"]) == 1
@@ -301,6 +305,7 @@ def get_w_b1_msg(user):
 def get_w_msg(user):
     TEXT = TEXT_ALL[user.lang]
     d_balances = client.post("Account/GetUserBalances", data="sss")
+    if d_balances is None: return handle_api_error(user)
     s = ""
     for account in d_balances["userAccountList"]:
         s += "\n%s %s" % (TEXT["w2"], account["accountType"])
@@ -374,7 +379,7 @@ def callback_inline_handler(call):
             elif call.data[4:9] == "_co_b":
                 data = TEMP_DATA.get(user.user_id, None)
                 if (data is None) or (data["_"] != "t_sp_co"):
-                    reply_start(call)
+                    reply_start(user=user)
                     return
                 btn = call.data[9:]
                 if btn == "1":
@@ -407,11 +412,15 @@ def callback_inline_handler(call):
                 bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
                 d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
+                if d_all_orders is None: return handle_api_error(user)
                 if len(d_all_orders) != 0:
-                    client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
+                    d_cancel_all = client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
+                    if d_cancel_all is None: return handle_api_error(user)
                 return
         pair = call.data[4:]
-        if pair in [x["code"] for x in client.get("MarketData/GetSymbols")]:
+        d_symbols = client.get("MarketData/GetSymbols")
+        if d_symbols is None: return handle_api_error(user)
+        if pair in [x["code"] for x in d_symbols]:
             keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]], one_time=False)
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["loading"], reply_markup=keyboard, parse_mode="HTML")
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
@@ -420,11 +429,12 @@ def callback_inline_handler(call):
             text, keyboard = get_t_sp_msg(user, pair)
             bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
         else:
-            reply_start(call)
+            reply_start(user=user)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[0] == "w":
         if call.data[1:5] == "_b1_":
             d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[5:], GenerateNewAddress=False)
+            if d_address is None: return handle_api_error(user)
             keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]])
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b1__"] + "\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"]))), reply_markup=keyboard, parse_mode="HTML")
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
@@ -444,12 +454,12 @@ def callback_inline_handler(call):
         if call.data[1:5] == "_b1_":
             user.lang = call.data[5:]
             user.save()
-            reply_start(call)
+            reply_start(user=user)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[:4] == "list":
         data = TEMP_DATA.get(user.user_id, None)
         if (user.status[:4] != "list") or (data is None) or (data["_"] != "list") or (data["id"] != call.data[5:]):
-            reply_start(call)
+            reply_start(user=user)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
             return
         action = call.data[4]
@@ -495,7 +505,7 @@ def callback_inline_handler(call):
         if path == "t_sp":
             user.status = "m"
             user.save()
-            reply_start(call)
+            reply_start(user=user)
         elif path[:7] in ("t_sp_mo", "t_sp_b5", "t_sp_co"):
             pair = path[7:]
             text, keyboard = get_t_sp_msg(user, pair)
@@ -503,7 +513,7 @@ def callback_inline_handler(call):
             user.status = "t_sp" + pair
             user.save()
         elif path == "w":
-            reply_start(call)
+            reply_start(user=user)
         elif path == "w_b1_":
             text, keyboard = get_w_msg(user)
             bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
@@ -511,12 +521,15 @@ def callback_inline_handler(call):
 
 
 @bot.message_handler(commands=['start'])
-def reply_start(message):
-    user = get_user(message.from_user.id)
+def reply_start(message=None, user=None):
+    if (message is None) and (user is None):
+        raise Exception("reply_start with no args")
+    if message is not None:
+        user = get_user(message.from_user.id)
+        if user is None:
+            tg_user_name = (message.from_user.first_name + ((" " + str(message.from_user.last_name)) if getattr(message.from_user, "last_name", None) else ""))
+            user = User.objects.create(user_id=message.from_user.id, name=message.from_user.first_name)
     TEXT = TEXT_ALL[user.lang]
-    if user is None:
-        tg_user_name = (message.from_user.first_name + ((" " + str(message.from_user.last_name)) if getattr(message.from_user, "last_name", None) else ""))
-        user = User.objects.create(user_id=message.from_user.id, name=message.from_user.first_name)
     reply_markup = bot.create_keyboard([[TEXT["m_b1"]], [TEXT["m_b2"]], [TEXT["m_b3"]]], one_time=False)
     bot.tg_api(bot.send_message, user.user_id, TEXT["m_n"], reply_markup=reply_markup, parse_mode="HTML")
     TEMP_DATA.pop(user.user_id, None)
@@ -548,6 +561,7 @@ def text_handler(message):
             bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b4_"], reply_markup=bot.create_keyboard([[TEXT["w_b4_b1"], TEXT["w_b4_b2"]], [TEXT["w_b4_b3"], TEXT["w_b4_b4"]], [TEXT["cancel_btn"]]], one_time=False), parse_mode="HTML")
         elif message.text == TEXT["w_b2_b1"]:
             d_accounts = client.post("Account/GetUserBalances", data="sss")
+            if d_accounts is None: return handle_api_error(user)
             currs = set()
             for account in d_accounts["userAccountList"]:
                 for balance in account["balanceList"]:
@@ -560,6 +574,7 @@ def text_handler(message):
             bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_1"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
         elif message.text == TEXT["w_b2_b2"]:
             d_accounts = client.post("Account/GetUserBalances", data="sss")
+            if d_accounts is None: return handle_api_error(user)
             currs = set()
             for account in d_accounts["userAccountList"]:
                 for balance in account["balanceList"]:
@@ -580,7 +595,9 @@ def text_handler(message):
                 api_path="Account/GetUserTransactions",
                 api_params=dict(Offset=0, Limit=99999, SortDesc=False)
             )
-            data["raw"] = client.post(data["api_path"], **data["api_params"])["transactionList"]
+            d_transactions = client.post(data["api_path"], **data["api_params"])
+            if d_transactions is None: return handle_api_error(user)
+            data["raw"] = d_transactions.get("transactionList", [])
             #data["raw"] = D_TRANS["transactionList"]
             data["pages_count"] = math.ceil(len(data["raw"])/10)
             data["title_ne"] = TEXT["list_transaction_ne"]
@@ -601,7 +618,9 @@ def text_handler(message):
                 api_path="Account/GetUserTrades",
                 api_params=dict(Offset=0, Limit=99999, SortDesc=False)
             )
-            data["raw"] = client.post(data["api_path"], **data["api_params"])
+            d_trades = client.post(data["api_path"], **data["api_params"])
+            if d_trades is None: return handle_api_error(user)
+            data["raw"] = d_trades
             #data["raw"] = D_TRADES
             data["pages_count"] = math.ceil(len(data["raw"])/10)
             data["title_ne"] = TEXT["list_trade_ne"]
@@ -622,7 +641,9 @@ def text_handler(message):
                 api_path="Transaction/GetUserAddressList",
                 api_params={"limit":99999,"offset":0,"sort":"dateCreated","searchString":"","address":"","publicKey":"","tagMessage":"","amountFrom":"","amountTo":"","transactionsCountFrom":"","transactionsCountTo":"","isUsed":None,"currencyIdList":[]}
             )
-            data["raw"] = client.post(data["api_path"], **data["api_params"]).get("addressList", [])
+            d_addresses = client.post(data["api_path"], **data["api_params"])
+            if d_addresses is None: return handle_api_error(user)
+            data["raw"] = d_addresses.get("addressList", [])
             data["raw"] = D_ADDR["addressList"]
             data["pages_count"] = math.ceil(len(data["raw"])/10)
             data["title_ne"] = TEXT["list_address_ne"]
@@ -636,6 +657,7 @@ def text_handler(message):
         elif message.text == TEXT["w_b4_b4"]:
             return
             d_codes = client.post("Account/GetUserTrades", Offset=0, Limit=99999, SortDesc=False)
+            if d_codes is None: return handle_api_error(user)
             #d_codes = D_CODES
             data = dict(
                 _="list",
@@ -705,7 +727,8 @@ def text_handler(message):
                 text, keyboard = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 del data["_"]
-                client.post("Trade/TestOrder", **data)
+                d_create_order = client.post("Trade/TestOrder", **data)
+                if d_create_order is None: return handle_api_error(user)
                 TEMP_DATA.pop(user.user_id, None)
             else:
                 user.status = "t_sp_co" + next_step_id
@@ -716,9 +739,11 @@ def text_handler(message):
                 if message.text.isdigit():
                     order_id = int(message.text)
                     d_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
+                    if d_orders is None: return handle_api_error(user)
                     #d_orders = D_ORD
                     if order_id in [x["id"] for x in d_orders]:
-                        client.post("Trade/CancelOrder", OrderId=order_id)
+                        d_cancel_order = client.post("Trade/CancelOrder", OrderId=order_id)
+                        if d_cancel_order is None: return handle_api_error(user)
                         bot.tg_api(bot.send_message, message.chat.id, TEXT["t_sp_mo_c"] % order_id, parse_mode="HTML")
                     text, keyboard = get_t_sp_mo_msg(user, pair)
                     bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
@@ -746,7 +771,9 @@ def text_handler(message):
                     api_path="Account/GetUserTrades",
                     api_params=dict(Market=pair, Offset=0, Limit=99999, SortDesc=False)
                 )
-                data["raw"] = client.post(data["api_path"], **data["api_params"])
+                d_trades = client.post(data["api_path"], **data["api_params"])
+                if d_trades is None: return handle_api_error(user)
+                data["raw"] = d_trades
                 #data["raw"] = D_TRADES
                 data["pages_count"] = math.ceil(len(data["raw"])/10)
                 data["title_ne"] = TEXT["list_trade1_ne"] % pair
@@ -758,7 +785,9 @@ def text_handler(message):
                     user.status = "list" + data["id"]
                     user.save()
             elif message.text == TEXT["t_sp_b5"]:
-                bot.tg_api(bot.send_photo, message.chat.id, client.load_24hchart_image(pair), TEXT["t_sp_graph"]%pair, reply_markup=bot.create_keyboard([[TEXT["back_btn"]]], [["back_t_sp_b5"+pair]]), parse_mode="HTML")
+                d_chart = client.load_24hchart_image(pair)
+                if d_chart is None: return handle_api_error(user)
+                bot.tg_api(bot.send_photo, message.chat.id, d_chart, TEXT["t_sp_graph"]%pair, reply_markup=bot.create_keyboard([[TEXT["back_btn"]]], [["back_t_sp_b5"+pair]]), parse_mode="HTML")
             else:
                 if not try_redeem_code(user, message.text):
                     if user.status[4:7] == "_mo":
@@ -797,6 +826,7 @@ def text_handler(message):
             data["Details"] = message.text
             del data["_"]
             d_withdraw = client.post("Account/CreateWithdrawal", **data)
+            if d_withdraw is None: return handle_api_error(user)
             if "error" in d_withdraw:
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_invalid2"], parse_mode="HTML")
             else:
@@ -832,6 +862,7 @@ def text_handler(message):
             if data["Recipient"] == "0":
                 del data["Recipient"]
             d_create_code = client.post("Account/CreateCode", **data)
+            if d_create_code is None: return handle_api_error(user)
             if "error" in d_create_code:
                 if d_create_code["error"] == "Insufficient funds":
                     bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b2_ne"], parse_mode="HTML")
@@ -899,13 +930,19 @@ def text_handler(message):
             else:
                 data["api_params"]["To"] = d2.timestamp()
             if data["type"] == "trade":
-                data["raw"] = client.post(data["api_path"], **data["api_params"])
+                d_trades = client.post(data["api_path"], **data["api_params"])
+                if d_trades is None: return handle_api_error(user)
+                data["raw"] = d_trades
                 #data["raw"] = D_TRADES
             elif data["type"] == "transaction":
-                data["raw"] = client.post(data["api_path"], **data["api_params"])["transactionList"]
+                d_transactions = client.post(data["api_path"], **data["api_params"])
+                if d_transactions is None: return handle_api_error(user)
+                data["raw"] = d_transactions.get("transactionList", [])
                 #data["raw"] = D_TRANS["transactionList"]
             elif data["type"] == "address":
-                data["raw"] = client.post(data["api_path"], **data["api_params"])["addressList"]
+                d_addresses = client.post(data["api_path"], **data["api_params"])
+                if d_addresses is None: return handle_api_error(user)
+                data["raw"] = d_addresses.get("addressList", [])
                 #data["raw"] = D_ADDR["addressList"]
             elif data["type"] == "code":
                 pass

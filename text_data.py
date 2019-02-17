@@ -109,7 +109,8 @@ TEXT_ALL["ru"] = {
     "cancel_btn": "< Отмена",
     "canceled": "Отмена",
     "redeem_code": "Код принят.",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "api_error": "Ошибка в API. Попробуйте позже."
 }
 
 
@@ -222,5 +223,6 @@ TEXT_ALL["en"] = {
     "cancel_btn": "< Cancel",
     "canceled": "Canceled",
     "redeem_code": "Code accepted.",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "api_error": "Api error. Try again later."
 }
