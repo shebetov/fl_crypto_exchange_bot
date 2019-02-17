@@ -138,6 +138,10 @@ t_sp_co2 - enter Price
 t_sp_co3 - enter StopPrice
 t_sp_co4 - enter LimitPrice 
 t_sp_mo - view my orders by pair
+w_b2_b1 - создание withdraw
+w_b2_b2 - создание code
+s_b3 - верификация
+list{id} - просмотр списка и его id в TEMP_DATA
 
 """
 
@@ -351,17 +355,7 @@ def handle_photo(message):
 def callback_inline_handler(call):
     user = get_user(call.from_user.id)
     if call.data[:4] == "t_sp":
-        if len(call.data) == 4:
-            pair = call.data[4:]
-            keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]],
-                                           one_time=False)
-            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["t_sp2"], reply_markup=keyboard)
-            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
-            user.status = "t_sp" + pair
-            user.save()
-            text, keyboard = get_t_sp_msg(pair)
-            bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-        elif call.data[4:7] == "_b1":
+        if call.data[4:7] == "_b1":
             pair = call.data[7:]
             text, keyboard = get_t_sp_msg(pair)
             try:
@@ -407,6 +401,16 @@ def callback_inline_handler(call):
             d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
             if len(d_all_orders) != 0:
                 client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
+        else:
+            pair = call.data[4:]
+            keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]],
+                                           one_time=False)
+            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["t_sp2"], reply_markup=keyboard)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+            user.status = "t_sp" + pair
+            user.save()
+            text, keyboard = get_t_sp_msg(pair)
+            bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
     elif call.data[0] == "w":
         if call.data[1:5] == "_b1_":
             d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[5:], GenerateNewAddress=False)
