@@ -351,7 +351,17 @@ def handle_photo(message):
 def callback_inline_handler(call):
     user = get_user(call.from_user.id)
     if call.data[:4] == "t_sp":
-        if call.data[4:7] == "_b1":
+        if len(call.data) == 4:
+            pair = call.data[4:]
+            keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]],
+                                           one_time=False)
+            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["t_sp2"], reply_markup=keyboard)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+            user.status = "t_sp" + pair
+            user.save()
+            text, keyboard = get_t_sp_msg(pair)
+            bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        elif call.data[4:7] == "_b1":
             pair = call.data[7:]
             text, keyboard = get_t_sp_msg(pair)
             try:
@@ -397,35 +407,30 @@ def callback_inline_handler(call):
             d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
             if len(d_all_orders) != 0:
                 client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
-        else:
-            pair = call.data[4:]
-            keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]], one_time=False)
-            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["t_sp2"], reply_markup=keyboard)
-            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
-            user.status = "t_sp" + pair
-            user.save()
-            text, keyboard = get_t_sp_msg(pair)
-            bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
     elif call.data[0] == "w":
         if call.data[1:5] == "_b1_":
             d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[5:], GenerateNewAddress=False)
             keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]])
             bot.tg_api(bot.send_message, call.message.chat.id, "Адрес для пополнения:\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"]))), reply_markup=keyboard)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
         elif call.data[1:7] == "_b2_b1":
             bot.tg_api(bot.send_message, call.message.chat.id, "Введи адрес")
             TEMP_DATA[user.user_id] = {"_": "w_b2_b1", "Currency": call.data[7:], "Address": None, "Amount": None, "Details": None}
             user.status = "w_b2_b1"
             user.save()
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
         elif call.data[1:7] == "_b2_b2":
             bot.tg_api(bot.send_message, call.message.chat.id, "Введи кол-во")
             TEMP_DATA[user.user_id] = {"_": "w_b2_b2", "Currency": call.data[7:], "Amount": None, "Recipient": None, "Description": None}
             user.status = "w_b2_b2"
             user.save()
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[0] == "s":
         if call.data[1:5] == "_b1_":
             #user.lang = call.data[5:]
             user.save()
             reply_start(call)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[:4] == "list":
         action = call.data[4]
         data = TEMP_DATA[user.user_id]
@@ -481,6 +486,7 @@ def callback_inline_handler(call):
             reply_start(call)
         elif path == "w_b1_":
             send_wallet(user)
+        bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
 
 
 @bot.message_handler(commands=['start'])
