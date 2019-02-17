@@ -442,7 +442,7 @@ def callback_inline_handler(call):
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[0] == "s":
         if call.data[1:5] == "_b1_":
-            #user.lang = call.data[5:]
+            user.lang = call.data[5:]
             user.save()
             reply_start(call)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
