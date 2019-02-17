@@ -55,7 +55,11 @@ class PrizmBitAPI:
             }
         )
         print(path + " -> " + str(r._content))
-        return r.json()
+        try:
+            return r.json()
+        except Exception as e:
+            logging.error(e, exc_info=True)
+            return {}
 
     def get(self, path, **params):
         return self._request("get", path, **params)

@@ -232,7 +232,7 @@ def get_t_sp_msg(pair):
     )), bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_b1"]]], [["back_t_sp", "t_sp_b1" + pair]])
 
 
-def get_t_sp_mo(user, pair):
+def get_t_sp_mo_msg(user, pair):
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
     d_my_orders = D_ORD
     if len(d_my_orders) == 0:
@@ -278,7 +278,7 @@ def get_t_co_next_status(data):
     return "5"
 
 
-def get_w_b1(user):
+def get_w_b1_msg(user):
     d_accounts = client.post("Account/GetUserBalances", data="sss")
     kb_t = []
     kb_d = []
@@ -293,7 +293,7 @@ def get_w_b1(user):
     return TEXT["w_b1_"], bot.create_keyboard(kb_t, kb_d)
 
 
-def send_wallet(user):
+def get_w_msg(user):
     d_balances = client.post("Account/GetUserBalances", data="sss")
     s = ""
     for account in d_balances["userAccountList"]:
@@ -301,8 +301,7 @@ def send_wallet(user):
         for balance in account["balanceList"]:
             s += "\n %s %s" % (balance["currencyTitle"], balance["availableBalance"])
     text = TEXT["w"] % s
-    keyboard = bot.create_keyboard([[TEXT["w_b1"], TEXT["w_b2"]], [TEXT["w_b3"], TEXT["w_b4"]], [TEXT["back_btn"]]], one_time=False)
-    bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
+    return text, bot.create_keyboard([[TEXT["w_b1"], TEXT["w_b2"]], [TEXT["w_b3"], TEXT["w_b4"]], [TEXT["back_btn"]]], one_time=False)
 
 
 @bot.message_handler(func=lambda message: True, content_types=['photo'])
@@ -455,7 +454,8 @@ def callback_inline_handler(call):
             if data["path"] == "w":
                 user.status = "m"
                 user.save()
-                send_wallet(user)
+                text, keyboard = get_w_msg(user)
+                bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             elif data["path"][0] == "t":
                 pair = data["path"][1:]
                 t, kb = get_t_sp_msg(pair)
@@ -497,7 +497,8 @@ def callback_inline_handler(call):
         elif path == "w":
             reply_start(call)
         elif path == "w_b1_":
-            send_wallet(user)
+            text, keyboard = get_w_msg(user)
+            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
 
 
@@ -524,11 +525,12 @@ def text_handler(message):
         elif message.text == TEXT["m_b1"]:
             send_exchange(user)
         elif message.text == TEXT["m_b2"]:
-            send_wallet(user)
+            text, keyboard = get_w_msg(user)
+            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         elif message.text == TEXT["m_b3"]:
             bot.tg_api(bot.send_message, message.chat.id, TEXT["s"], reply_markup=bot.create_keyboard([[TEXT["s_b2"], TEXT["s_b3"]], [TEXT["back_btn"], TEXT["s_b1"]]]), parse_mode="HTML")
         elif message.text == TEXT["w_b1"]:
-            text, keyboard = get_w_b1(user)
+            text, keyboard = get_w_b1_msg(user)
             bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
         elif message.text == TEXT["w_b2"]:
             bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_"], reply_markup=bot.create_keyboard([[TEXT["w_b2_b1"]], [TEXT["w_b2_b2"]], [TEXT["cancel_btn"]]]), parse_mode="HTML")
@@ -708,7 +710,7 @@ def text_handler(message):
                     if order_id in [x["id"] for x in d_orders]:
                         client.post("Trade/CancelOrder", OrderId=order_id)
                         bot.tg_api(bot.send_message, message.chat.id, TEXT["t_sp_mo_c"] % order_id, parse_mode="HTML")
-                    text, keyboard = get_t_sp_mo(user, pair)
+                    text, keyboard = get_t_sp_mo_msg(user, pair)
                     bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                     return
             else:
@@ -718,7 +720,7 @@ def text_handler(message):
                 text, keyboard = get_t_co_msg(TEMP_DATA[user.user_id])
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
             elif message.text == TEXT["t_sp_b3"]:
-                text, keyboard = get_t_sp_mo(user, pair)
+                text, keyboard = get_t_sp_mo_msg(user, pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 if keyboard is not None:  # not good
                     user.status = "t_sp_mo" + pair
@@ -750,7 +752,7 @@ def text_handler(message):
             else:
                 if not try_redeem_code(user, message.text):
                     if user.status[4:7] == "_mo":
-                        text, keyboard = get_t_sp_mo(user, pair)
+                        text, keyboard = get_t_sp_mo_msg(user, pair)
                     else:
                         text, keyboard = get_t_sp_msg(pair)
                     bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
@@ -763,7 +765,8 @@ def text_handler(message):
             TEMP_DATA.pop(user.user_id, None)
             user.status = "m"
             user.save()
-            send_wallet(user)
+            text, keyboard = get_w_msg(user)
+            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             return
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "w_b2_b1"):
@@ -795,7 +798,8 @@ def text_handler(message):
             TEMP_DATA.pop(user.user_id, None)
             user.status = "m"
             user.save()
-            send_wallet(user)
+            text, keyboard = get_w_msg(user)
+            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             return
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "w_b2_b2"):
@@ -832,7 +836,8 @@ def text_handler(message):
             TEMP_DATA.pop(user.user_id, None)
             user.status = "m"
             user.save()
-            send_wallet(user)
+            text, keyboard = get_w_msg(user)
+            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             return
         data = TEMP_DATA.get(user.user_id, None)
         if (data is not None) and (data["_"] == "s_b3") and ("params" in data):
