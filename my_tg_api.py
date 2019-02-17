@@ -5,7 +5,7 @@ from telebot.apihelper import ApiException
 import utils
 
 
-telebot.logger.setLevel(logging.DEBUG)
+#telebot.logger.setLevel(logging.DEBUG)
 logger = logging.getLogger('TeleBot')
 
 

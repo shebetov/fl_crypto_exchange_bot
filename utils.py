@@ -1,3 +1,5 @@
+from datetime import datetime
+import dateparser
 from threading import Thread
 
 
@@ -24,3 +26,14 @@ def threaded(daemon=False):
             return thread
         return threaded_func
     return threaded_dec
+
+
+def parse_date_period(text):
+    d1_raw, d2_raw = text.split("-")
+    d1_raw, d2_raw = d1_raw.strip(" "), d2_raw.strip(" ")
+    d1 = d2 = None
+    if len(d1_raw) != 0:
+        d1 = dateparser.parse(d1_raw, languages=['ru', 'en'], settings={'PREFER_DATES_FROM': 'past'})
+    if len(d2_raw) != 0:
+        d2 = dateparser.parse(d2_raw, languages=['ru', 'en'], settings={'PREFER_DATES_FROM': 'past'})
+    return d1, d2

@@ -6,3 +6,9 @@ sentry_sdk
 matplotlib
 mpl_finance
 numpy
+imgurpython
+cachetools
+websocket-client
+pandas
+openpyxl
+dateparser
