@@ -17,7 +17,17 @@ logging.basicConfig(level=logging.DEBUG)
 
 def cache_request(func):
     memo = {}
-    ttl_config = {"MarketData/GetSymbols": 600, "MarketData/GetTicker": 3, "MarketData/GetOrderBook": 3}
+    ttl_config = {
+        "MarketData/GetSymbols": 600,
+        "MarketData/GetTicker": 3,
+        "MarketData/GetOrderBook": 3,
+        "Account/OpenOrders": 3,
+        "Account/GetUserBalances": 3,
+        "Account/GetCryptoAddress": 10,
+        "Account/GetUserTransactions": 5,
+        "Account/GetUserTrades": 3,
+        "Transaction/GetUserAddressList": 10
+    }
 
     def wrapper(self, method, path, **kwargs):
         ttl = ttl_config.get(path, None)
@@ -60,7 +70,7 @@ class PrizmBitAPI:
             return r.json()
         except Exception as e:
             logging.error(e, exc_info=True)
-            return None
+            return {"error": "No response from API"}
 
     def get(self, path, **params):
         return self._request("get", path, **params)
@@ -72,10 +82,15 @@ class PrizmBitAPI:
     def load_24hchart_image(self, pair):
         t = int(time.time())
         d_chart = self.get("MarketData/GetChart", marketName=pair, to=t, period="5", **{"from": t-8640})
-        plt = generate_chart(pair, d_chart["t"], d_chart["o"], d_chart["h"], d_chart["l"], d_chart["c"], d_chart["v"])
-        file_name = "files/chart24h_" + pair.replace("/", "-") + ".png"
-        plt.savefig(file_name)
-        return upload_image(file_name)
+        if "error" in d_chart: return d_chart
+        try:
+            plt = generate_chart(pair, d_chart["t"], d_chart["o"], d_chart["h"], d_chart["l"], d_chart["c"], d_chart["v"])
+            file_name = "files/chart24h_" + pair.replace("/", "-") + ".png"
+            plt.savefig(file_name)
+            return upload_image(file_name)
+        except Exception as e:
+            logging.error(e, exc_info=True)
+            return {"error": "Error while generating image"}
 
 
 class PrizmBitWebsocket:
