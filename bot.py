@@ -290,7 +290,7 @@ def get_w_b1(user):
 
 
 def send_wallet(user):
-    keyboard = bot.create_keyboard([[TEXT["w_b1"], TEXT["w_b2"]], [TEXT["w_b3"]], [TEXT["w_b4"]]])
+    keyboard = bot.create_keyboard([[TEXT["w_b1"], TEXT["w_b2"]], [TEXT["w_b3"]], [TEXT["w_b4"]]], one_time=False)
     bot.tg_api(bot.send_message, user.user_id, "Загрузка...", reply_markup=keyboard, parse_mode="HTML")
     d_balances = client.post("Account/GetUserBalances", data="sss")
     s = ""
@@ -515,7 +515,7 @@ def text_handler(message):
         elif message.text == TEXT["w_b2"]:
             bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_"], reply_markup=bot.create_keyboard([[TEXT["w_b2_b1"]], [TEXT["w_b2_b2"]], [TEXT["cancel_btn"]]]))
         elif message.text == TEXT["w_b4"]:
-            bot.tg_api( bot.send_message, message.chat.id, TEXT["w_b4_"], reply_markup=bot.create_keyboard([[TEXT["w_b4_b1"], TEXT["w_b4_b2"]], [TEXT["w_b4_b3"], TEXT["w_b4_b4"]], [TEXT["cancel_btn"]]]))
+            bot.tg_api( bot.send_message, message.chat.id, TEXT["w_b4_"], reply_markup=bot.create_keyboard([[TEXT["w_b4_b1"], TEXT["w_b4_b2"]], [TEXT["w_b4_b3"], TEXT["w_b4_b4"]], [TEXT["cancel_btn"]]], one_time=False))
         elif message.text == TEXT["w_b2_b1"]:
             d_accounts = client.post("Account/GetUserBalances", data="sss")
             currs = set()
