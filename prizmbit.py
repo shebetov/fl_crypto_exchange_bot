@@ -68,7 +68,7 @@ class PrizmBitAPI:
         t = int(time.time())
         d_chart = self.get("MarketData/GetChart", marketName=pair, to=t, period="5", **{"from": t-8640})
         plt = generate_chart(pair, d_chart["t"], d_chart["o"], d_chart["h"], d_chart["l"], d_chart["c"], d_chart["v"])
-        file_name = "images/chart24h_" + pair.replace("/", "-") + ".png"
+        file_name = "files/chart24h_" + pair.replace("/", "-") + ".png"
         plt.savefig(file_name)
         return upload_image(file_name)
 

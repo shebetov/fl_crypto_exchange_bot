@@ -454,11 +454,11 @@ def callback_inline_handler(call):
                 columns = ("currencyTitle", "address", "publicKey", "label", "amount", "transactionsCount", "dateCreated")
             df = pandas.DataFrame(data["raw"], columns=columns)
             if action == "C":
-                df.to_csv("import.csv")
-                bot.tg_api(bot.send_document, user.user_id, open("import.csv", "rb"))
+                df.to_csv("files/import.csv")
+                bot.tg_api(bot.send_document, user.user_id, open("files/import.csv", "rb"))
             else:
-                df.to_excel('import.xlsx', sheet_name='sheet1', index=False)
-                bot.tg_api(bot.send_document, user.user_id, open("import.xlsx", "rb"))
+                df.to_excel('files/import.xlsx', sheet_name='sheet1', index=False)
+                bot.tg_api(bot.send_document, user.user_id, open("files/import.xlsx", "rb"))
             return
         text, keyboard = get_list_msg(user, data)
         bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, ignore_exc=True)
