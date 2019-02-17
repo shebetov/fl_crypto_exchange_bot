@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 import decimal
 import config
-from text_data import TEXT
+from text_data import TEXT_ALL
 import utils
 import math
 import pandas
@@ -179,7 +179,7 @@ def gen_csv(data, fieldnames):
 def try_redeem_code(user, text):
     d_redeem_code = client.post("Account/RedeemCode", Code=text)
     if "CodeId" in d_redeem_code:
-        bot.tg_api(bot.send_message, user.user_id, TEXT["redeem_code"], parse_mode="HTML")
+        bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["redeem_code"], parse_mode="HTML")
         return True
     else:
         return False
@@ -195,10 +195,11 @@ def send_exchange(user):
         for x in row:
             kb_t[-1].append(x)
             kb_d[-1].append("t_sp" + x)
-    bot.tg_api(bot.send_message, user.user_id, TEXT["t"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
+    bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["t"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
 
 
 def get_list_msg(user, data):
+    TEXT = TEXT_ALL[user.lang]
     if data["pages_count"] > 0:
         text = data["title"]
         kb_t = []
@@ -223,6 +224,7 @@ def get_list_msg(user, data):
 
 
 def get_t_sp_msg(pair):
+    TEXT = TEXT_ALL[user.lang]
     d_ticker = client.get("MarketData/GetTicker", marketName=pair)
     d_orderbook = client.get("MarketData/GetOrderBook", market=pair, limit=4)
     return (TEXT["t_sp"] % (
@@ -233,6 +235,7 @@ def get_t_sp_msg(pair):
 
 
 def get_t_sp_mo_msg(user, pair):
+    TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
     d_my_orders = D_ORD
     if len(d_my_orders) == 0:
@@ -252,6 +255,7 @@ def get_t_sp_mo_msg(user, pair):
 
 
 def get_t_co_msg(data):
+    TEXT = TEXT_ALL[user.lang]
     t_buy = TEXT["t_sp_co_b1"]
     t_sell = TEXT["t_sp_co_b2"]
     if data["OrderSide"] == "Buy":
@@ -267,6 +271,7 @@ def get_t_co_msg(data):
 
 
 def get_t_co_next_status(data):
+    TEXT = TEXT_ALL[user.lang]
     if data["Amount"] is None:
         return "1"
     elif (data.get("Price", None) is None) and (data["OrderType"] == "FillOrKill"):
@@ -279,6 +284,7 @@ def get_t_co_next_status(data):
 
 
 def get_w_b1_msg(user):
+    TEXT = TEXT_ALL[user.lang]
     d_accounts = client.post("Account/GetUserBalances", data="sss")
     kb_t = []
     kb_d = []
@@ -294,6 +300,7 @@ def get_w_b1_msg(user):
 
 
 def get_w_msg(user):
+    TEXT = TEXT_ALL[user.lang]
     d_balances = client.post("Account/GetUserBalances", data="sss")
     s = ""
     for account in d_balances["userAccountList"]:
@@ -306,6 +313,7 @@ def get_w_msg(user):
 
 @bot.message_handler(func=lambda message: True, content_types=['photo'])
 def handle_photo(message):
+    TEXT = TEXT_ALL[user.lang]
     user = get_user(message.from_user.id)
     if user.status == "s_b3":
         data = TEMP_DATA.get(user.user_id, None)
@@ -351,6 +359,7 @@ def handle_photo(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline_handler(call):
     print(call.data)
+    TEXT = TEXT_ALL[user.lang]
     user = get_user(call.from_user.id)
     if call.data[:4] == "t_sp":
         if user.status[:4] == "t_sp":
@@ -405,7 +414,7 @@ def callback_inline_handler(call):
         pair = call.data[4:]
         if pair in [x["code"] for x in client.get("MarketData/GetSymbols")]:
             keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]], one_time=False)
-            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["t_sp2"], reply_markup=keyboard, parse_mode="HTML")
+            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["loading"], reply_markup=keyboard, parse_mode="HTML")
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
             user.status = "t_sp" + pair
             user.save()
@@ -504,6 +513,7 @@ def callback_inline_handler(call):
 
 @bot.message_handler(commands=['start'])
 def reply_start(message):
+    TEXT = TEXT_ALL[user.lang]
     user = get_user(message.from_user.id)
     if user is None:
         tg_user_name = (message.from_user.first_name + ((" " + str(message.from_user.last_name)) if getattr(message.from_user, "last_name", None) else ""))
@@ -518,6 +528,7 @@ def reply_start(message):
 @bot.message_handler(content_types=['text'])
 def text_handler(message):
     print(message.text)
+    TEXT = TEXT_ALL[user.lang]
     user = get_user(message.from_user.id)
     if user.status == "m":
         if message.text in (TEXT["cancel_btn"], TEXT["back_btn"]):

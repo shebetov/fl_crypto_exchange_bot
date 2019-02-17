@@ -5,6 +5,7 @@ class User(models.Model):
     user_id = models.IntegerField(verbose_name='Telegram id', blank=False, unique=True)
     name = models.CharField(verbose_name='Name from Telegram', max_length=300, blank=False)
     status = models.CharField(verbose_name="Status In Chat", max_length=2, blank=False, default="m")
+    lang = models.CharField(verbose_name="Language", max_length=2, blank=False, default="en")
     is_active = models.BooleanField(verbose_name='Active in Telegram', default=True)
     last_active = models.DateTimeField(verbose_name='Last Active', blank=False, auto_now=True)
     date_registered = models.DateTimeField(verbose_name='Registered', blank=False, auto_now_add=True)
