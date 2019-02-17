@@ -223,7 +223,7 @@ def get_list_msg(user, data):
         return data["title_ne"], None
 
 
-def get_t_sp_msg(pair):
+def get_t_sp_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_ticker = client.get("MarketData/GetTicker", marketName=pair)
     d_orderbook = client.get("MarketData/GetOrderBook", market=pair, limit=4)
@@ -254,7 +254,7 @@ def get_t_sp_mo_msg(user, pair):
         return text, bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_mo_b1"]]], [["back_t_sp_mo" + pair, "t_sp_mo_b1" + pair]])
 
 
-def get_t_co_msg(data):
+def get_t_co_msg(user, data):
     TEXT = TEXT_ALL[user.lang]
     t_buy = TEXT["t_sp_co_b1"]
     t_sell = TEXT["t_sp_co_b2"]
@@ -271,7 +271,6 @@ def get_t_co_msg(data):
 
 
 def get_t_co_next_status(data):
-    TEXT = TEXT_ALL[user.lang]
     if data["Amount"] is None:
         return "1"
     elif (data.get("Price", None) is None) and (data["OrderType"] == "FillOrKill"):
@@ -313,8 +312,8 @@ def get_w_msg(user):
 
 @bot.message_handler(func=lambda message: True, content_types=['photo'])
 def handle_photo(message):
-    TEXT = TEXT_ALL[user.lang]
     user = get_user(message.from_user.id)
+    TEXT = TEXT_ALL[user.lang]
     if user.status == "s_b3":
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "s_b3"):
@@ -359,13 +358,13 @@ def handle_photo(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline_handler(call):
     print(call.data)
-    TEXT = TEXT_ALL[user.lang]
     user = get_user(call.from_user.id)
+    TEXT = TEXT_ALL[user.lang]
     if call.data[:4] == "t_sp":
         if user.status[:4] == "t_sp":
             if call.data[4:7] == "_b1":
                 pair = call.data[7:]
-                text, keyboard = get_t_sp_msg(pair)
+                text, keyboard = get_t_sp_msg(user, pair)
                 try:
                     bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
                                reply_markup=keyboard, parse_mode="HTML", ignore_exc=True, drop_exc=True)
@@ -397,14 +396,14 @@ def callback_inline_handler(call):
                         user.status = "t_sp_co1"
                         user.save()
                     return
-                text, keyboard = get_t_co_msg(data)
+                text, keyboard = get_t_co_msg(user, data)
                 bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
                            reply_markup=keyboard, parse_mode="HTML", ignore_exc=True)
                 return
             elif call.data[4:10] == "_mo_b1":
                 pair = call.data[10:]
                 bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_mo_b1_"])
-                text, keyboard = get_t_sp_msg(pair)
+                text, keyboard = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
                 d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
@@ -418,7 +417,7 @@ def callback_inline_handler(call):
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
             user.status = "t_sp" + pair
             user.save()
-            text, keyboard = get_t_sp_msg(pair)
+            text, keyboard = get_t_sp_msg(user, pair)
             bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
         else:
             reply_start(call)
@@ -467,7 +466,7 @@ def callback_inline_handler(call):
                 bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             elif data["path"][0] == "t":
                 pair = data["path"][1:]
-                t, kb = get_t_sp_msg(pair)
+                t, kb = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, call.message.chat.id, t, reply_markup=kb, parse_mode="HTML")
                 user.status = "t_sp" + pair
                 user.save()
@@ -499,7 +498,7 @@ def callback_inline_handler(call):
             reply_start(call)
         elif path[:7] in ("t_sp_mo", "t_sp_b5", "t_sp_co"):
             pair = path[7:]
-            text, keyboard = get_t_sp_msg(pair)
+            text, keyboard = get_t_sp_msg(user, pair)
             bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
             user.status = "t_sp" + pair
             user.save()
@@ -513,8 +512,8 @@ def callback_inline_handler(call):
 
 @bot.message_handler(commands=['start'])
 def reply_start(message):
-    TEXT = TEXT_ALL[user.lang]
     user = get_user(message.from_user.id)
+    TEXT = TEXT_ALL[user.lang]
     if user is None:
         tg_user_name = (message.from_user.first_name + ((" " + str(message.from_user.last_name)) if getattr(message.from_user, "last_name", None) else ""))
         user = User.objects.create(user_id=message.from_user.id, name=message.from_user.first_name)
@@ -528,8 +527,8 @@ def reply_start(message):
 @bot.message_handler(content_types=['text'])
 def text_handler(message):
     print(message.text)
-    TEXT = TEXT_ALL[user.lang]
     user = get_user(message.from_user.id)
+    TEXT = TEXT_ALL[user.lang]
     if user.status == "m":
         if message.text in (TEXT["cancel_btn"], TEXT["back_btn"]):
             reply_start(message)
@@ -679,7 +678,7 @@ def text_handler(message):
             pair = data["Market"]
             if message.text == "0":
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
-                text, keyboard = get_t_sp_msg(pair)
+                text, keyboard = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 TEMP_DATA.pop(user.user_id, None)
                 user.status = "t_sp" + pair
@@ -703,7 +702,7 @@ def text_handler(message):
             if next_step_id == "5":
                 user.status = "t_sp" + pair
                 user.save()
-                text, keyboard = get_t_sp_msg(pair)
+                text, keyboard = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 del data["_"]
                 client.post("Trade/TestOrder", **data)
@@ -728,7 +727,7 @@ def text_handler(message):
                 pair = user.status[4:]
             if message.text == TEXT["t_sp_b2"]:
                 TEMP_DATA[user.user_id] = {"_": "t_sp_co", "Market": pair, "OrderSide": None, "OrderType": "Market", "AccountType": "Trade"}
-                text, keyboard = get_t_co_msg(TEMP_DATA[user.user_id])
+                text, keyboard = get_t_co_msg(user, TEMP_DATA[user.user_id])
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
             elif message.text == TEXT["t_sp_b3"]:
                 text, keyboard = get_t_sp_mo_msg(user, pair)
@@ -765,7 +764,7 @@ def text_handler(message):
                     if user.status[4:7] == "_mo":
                         text, keyboard = get_t_sp_mo_msg(user, pair)
                     else:
-                        text, keyboard = get_t_sp_msg(pair)
+                        text, keyboard = get_t_sp_msg(user, pair)
                     bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 return
             user.status = "t_sp" + pair
