@@ -311,7 +311,10 @@ def send_wallet(user):
 def handle_photo(message):
     user = get_user(message.from_user.id)
     if user.status == "s_b3":
-        data = TEMP_DATA[user.user_id]
+        data = TEMP_DATA.get(user.user_id, None)
+        if (data is None) or (data["_"] != "s_b3"):
+            reply_start(message)
+            return
         if "params" in data:
             file_upload_text = (("f1", "Add Proof of Address Photo"), ("f2", "Add Selfie"), ("f3", None))
             for field, text in file_upload_text:
@@ -322,9 +325,6 @@ def handle_photo(message):
                     break
             if file_upload_text[-1][0] in data["params"]:
                 bot.tg_api(bot.send_message, message.chat.id, "Данные верификации отправлены на проверку")
-                user.status = "m"
-                user.save()
-                del TEMP_DATA[user.user_id]
                 reply_start(message)
                 print(data["params"])
                 # client.post("https://front.prizmbit.com/api/fo/Login/UploadUserFiles", )  # Content-Type: multipart/form-data; Authorization: 13bf29729b1496796efb2f998c27b2c9096297966d27c755118993278a025419
@@ -353,68 +353,70 @@ def handle_photo(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline_handler(call):
+    print(call.data)
     user = get_user(call.from_user.id)
     if call.data[:4] == "t_sp":
-        if user.status[:4] == "t_sp" or False:
-            reply_start(call)
-            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
-            return
-        if call.data[4:7] == "_b1":
-            pair = call.data[7:]
-            text, keyboard = get_t_sp_msg(pair)
-            try:
-                bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, ignore_exc=True, drop_exc=True)
-            except ApiException:
-                bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_b1_answer"])
-        elif call.data[4:9] == "_co_b":
-            btn = call.data[9:]
-            if btn == "1":
-                TEMP_DATA[user.user_id]["OrderSide"] = "Buy"
-            elif btn == "2":
-                TEMP_DATA[user.user_id]["OrderSide"] = "Sell"
-            elif btn == "3":
-                TEMP_DATA[user.user_id]["OrderType"] = config.ORDER_TYPE_CHOICES[
-                    (config.ORDER_TYPE_CHOICES.index(TEMP_DATA[user.user_id]["OrderType"]) + 1) % (
-                                len(config.ORDER_TYPE_CHOICES))]
-            elif btn == "4":
-                TEMP_DATA[user.user_id]["AccountType"] = config.ACCOUNT_TYPE_CHOICES[
-                    (config.ACCOUNT_TYPE_CHOICES.index(TEMP_DATA[user.user_id]["AccountType"]) + 1) % (
-                                len(config.ACCOUNT_TYPE_CHOICES))]
-            elif btn == "5":
-                if TEMP_DATA[user.user_id]["OrderSide"] is None:
-                    bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_co_e1"], show_alert=True)
-                else:
-                    bot.tg_api(bot.send_message, user.user_id, TEXT["t_sp_co1"])
-                    user.status = "t_sp_co1"
-                    user.save()
+        if user.status[:4] == "t_sp":
+            if call.data[4:7] == "_b1":
+                pair = call.data[7:]
+                text, keyboard = get_t_sp_msg(pair)
+                try:
+                    bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
+                               reply_markup=keyboard, ignore_exc=True, drop_exc=True)
+                except ApiException:
+                    bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_b1_answer"])
                 return
-            elif btn == "6":
-                user.status = "m"
-                del TEMP_DATA[user.user_id]
-                reply_start(call)
+            elif call.data[4:9] == "_co_b":
+                data = TEMP_DATA.get(user.user_id, None)
+                if (data is None) or (data["_"] != "t_sp_co"):
+                    reply_start(call)
+                    return
+                btn = call.data[9:]
+                if btn == "1":
+                    data["OrderSide"] = "Buy"
+                elif btn == "2":
+                    data["OrderSide"] = "Sell"
+                elif btn == "3":
+                    data["OrderType"] = config.ORDER_TYPE_CHOICES[
+                        (config.ORDER_TYPE_CHOICES.index(data["OrderType"]) + 1) % (len(config.ORDER_TYPE_CHOICES))]
+                elif btn == "4":
+                    data["AccountType"] = config.ACCOUNT_TYPE_CHOICES[
+                        (config.ACCOUNT_TYPE_CHOICES.index(data["AccountType"]) + 1) % (
+                            len(config.ACCOUNT_TYPE_CHOICES))]
+                elif btn == "5":
+                    if data["OrderSide"] is None:
+                        bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_co_e1"], show_alert=True)
+                    else:
+                        bot.tg_api(bot.send_message, user.user_id, TEXT["t_sp_co1"])
+                        user.status = "t_sp_co1"
+                        user.save()
+                    return
+                text, keyboard = get_t_co_msg(data)
+                bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
+                           reply_markup=keyboard, ignore_exc=True)
                 return
-            text, keyboard = get_t_co_msg(TEMP_DATA[user.user_id])
-            bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
-                       reply_markup=keyboard, ignore_exc=True)
-        elif call.data[4:10] == "_mo_b1":
-            pair = call.data[10:]
-            bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_mo_b1_"])
-            text, keyboard = get_t_sp_msg(pair)
-            bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
-            d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
-            if len(d_all_orders) != 0:
-                client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
-        else:
-            pair = call.data[4:]
-            keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]],
-                                           one_time=False)
+            elif call.data[4:10] == "_mo_b1":
+                pair = call.data[10:]
+                bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_mo_b1_"])
+                text, keyboard = get_t_sp_msg(pair)
+                bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+                bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+                d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
+                if len(d_all_orders) != 0:
+                    client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
+                return
+        pair = call.data[4:]
+        if pair in [x["code"] for x in client.get("MarketData/GetSymbols")]:
+            keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]], one_time=False)
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["t_sp2"], reply_markup=keyboard)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
             user.status = "t_sp" + pair
             user.save()
             text, keyboard = get_t_sp_msg(pair)
             bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        else:
+            reply_start(call)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[0] == "w":
         if call.data[1:5] == "_b1_":
             d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[5:], GenerateNewAddress=False)
@@ -440,18 +442,18 @@ def callback_inline_handler(call):
             reply_start(call)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[:4] == "list":
-        if user.status[:4] == "list" or False:
+        data = TEMP_DATA.get(user.user_id, None)
+        if (user.status[:4] == "list" or False) or (data is None) or (data["_"] != "list") or (data["id"] != call.data[5:]):
             reply_start(call)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
             return
         action = call.data[4]
-        data = TEMP_DATA[user.user_id]
         if action == "<":
             data["current_page"] = (data["pages_count"] - 1) if data["current_page"] == 0 else (data["current_page"] - 1)
         elif action == ">":
             data["current_page"] = 0 if data["current_page"] == (data["pages_count"] - 1) else (data["current_page"] + 1)
         elif action == "B":
-            del TEMP_DATA[user.user_id]
+            TEMP_DATA.pop(user.user_id, None)
             if data["path"] == "w":
                 user.status = "m"
                 user.save()
@@ -509,7 +511,7 @@ def reply_start(message):
         user = User.objects.create(user_id=message.from_user.id, name=message.from_user.first_name)
     reply_markup = bot.create_keyboard([[TEXT["m_b1"]], [TEXT["m_b2"]], [TEXT["m_b3"]]], one_time=False)
     bot.tg_api(bot.send_message, user.user_id, TEXT["m_n"], reply_markup=reply_markup, parse_mode="HTML")
-    TEMP_DATA.pop(user.user_id, False)
+    TEMP_DATA.pop(user.user_id, None)
     user.status = "m"
     user.save()
 
@@ -652,7 +654,6 @@ def text_handler(message):
             pass
         elif message.text == TEXT["s_b3"]:
             bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3_"], parse_mode="HTML")
-            TEMP_DATA[user.user_id] = {"_": "s_b3"}
             user.status = "s_b3"
             user.save()
         else:
@@ -660,12 +661,16 @@ def text_handler(message):
                 reply_start(message)
     elif user.status[:4] == "t_sp":
         if user.status[4:7] == "_co":
-            pair = TEMP_DATA[user.user_id]["Market"]
+            data = TEMP_DATA.get(user.user_id, None)
+            if (data is None) or (data["_"] != "t_sp_co"):
+                reply_start(message)
+                return
+            pair = data["Market"]
             if message.text == "0":
                 bot.tg_api(bot.send_message, message.chat.id, "Отмена")
                 text, keyboard = get_t_sp_msg(pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard)
-                del TEMP_DATA[user.user_id]
+                TEMP_DATA.pop(user.user_id, None)
                 user.status = "t_sp" + pair
                 user.save()
                 return
@@ -675,23 +680,23 @@ def text_handler(message):
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["t_sp_co_e2"])
                 return
             if user.status[7] == "1":
-                TEMP_DATA[user.user_id]["Amount"] = message.text
+                data["Amount"] = message.text
             elif user.status[7] == "2":
-                TEMP_DATA[user.user_id]["Price"] = message.text
+                data["Price"] = message.text
             elif user.status[7] == "3":
-                TEMP_DATA[user.user_id]["StopPrice"] = message.text
+                data["StopPrice"] = message.text
             elif user.status[7] == "4":
-                TEMP_DATA[user.user_id]["LimitPrice"] = message.text
-            next_step_id = get_t_co_next_status(TEMP_DATA[user.user_id])
+                data["LimitPrice"] = message.text
+            next_step_id = get_t_co_next_status(data)
             bot.tg_api(bot.send_message, message.chat.id, TEXT["t_sp_co"+next_step_id])
             if next_step_id == "5":
                 user.status = "t_sp" + pair
                 user.save()
                 text, keyboard = get_t_sp_msg(pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard)
-                del TEMP_DATA[user.user_id]["_"]
-                client.post("Trade/TestOrder", **TEMP_DATA[user.user_id])
-                del TEMP_DATA[user.user_id]
+                del data["_"]
+                client.post("Trade/TestOrder", **data)
+                TEMP_DATA.pop(user.user_id, None)
             else:
                 user.status = "t_sp_co" + next_step_id
                 user.save()
@@ -711,8 +716,7 @@ def text_handler(message):
             else:
                 pair = user.status[4:]
             if message.text == TEXT["t_sp_b2"]:
-                TEMP_DATA[user.user_id] = {"_": "t_sp_co", "Market": pair, "OrderSide": None, "OrderType": "Market",
-                                           "AccountType": "Trade"}
+                TEMP_DATA[user.user_id] = {"_": "t_sp_co", "Market": pair, "OrderSide": None, "OrderType": "Market", "AccountType": "Trade"}
                 text, keyboard = get_t_co_msg(TEMP_DATA[user.user_id])
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard)
             elif message.text == TEXT["t_sp_b3"]:
@@ -758,59 +762,64 @@ def text_handler(message):
     elif user.status == "w_b2_b1":
         if message.text == "0":
             bot.tg_api(bot.send_message, message.chat.id, "Отмена")
-            del TEMP_DATA[user.user_id]
+            TEMP_DATA.pop(user.user_id, None)
             user.status = "m"
             user.save()
             send_wallet(user)
             return
-        if TEMP_DATA[user.user_id]["Address"] is None:
+        data = TEMP_DATA.get(user.user_id, None)
+        if (data is None) or (data["_"] != "w_b2_b1"):
+            reply_start(message)
+            return
+        if data["Address"] is None:
             bot.tg_api(bot.send_message, message.chat.id, "Введи кол-во")
-            TEMP_DATA[user.user_id]["Address"] = message.text
-        elif TEMP_DATA[user.user_id]["Amount"] is None:
+            data["Address"] = message.text
+        elif data["Amount"] is None:
             try:
                 decimal.Decimal(message.text)
             except decimal.InvalidOperation:
                 bot.tg_api(bot.send_message, message.chat.id, "Неправильный ввод")
                 return
             bot.tg_api(bot.send_message, message.chat.id, "Введи описание перевода")
-            TEMP_DATA[user.user_id]["Amount"] = message.text
-        elif TEMP_DATA[user.user_id]["Details"] is None:
-            TEMP_DATA[user.user_id]["Details"] = message.text
-            del TEMP_DATA[user.user_id]["_"]
-            d_withdraw = client.post("Account/CreateWithdrawal", **TEMP_DATA[user.user_id])
+            data["Amount"] = message.text
+        elif data["Details"] is None:
+            data["Details"] = message.text
+            del data["_"]
+            d_withdraw = client.post("Account/CreateWithdrawal", **data)
             if "error" in d_withdraw:
                 bot.tg_api(bot.send_message, message.chat.id, "Ошибка. Проверь правильность введенных данных.")
             else:
                 bot.tg_api(bot.send_message, message.chat.id, "Перевод создан. Статус: " + str(d_withdraw["transactionStatus"]))
-            del TEMP_DATA[user.user_id]
-            user.status = "m"
-            user.save()
             reply_start(message)
     elif user.status == "w_b2_b2":
         if message.text == "0":
             bot.tg_api(bot.send_message, message.chat.id, "Отмена")
-            del TEMP_DATA[user.user_id]
+            TEMP_DATA.pop(user.user_id, None)
             user.status = "m"
             user.save()
             send_wallet(user)
             return
-        if TEMP_DATA[user.user_id]["Amount"] is None:
+        data = TEMP_DATA.get(user.user_id, None)
+        if (data is None) or (data["_"] != "w_b2_b2"):
+            reply_start(message)
+            return
+        if data["Amount"] is None:
             try:
                 decimal.Decimal(message.text)
             except decimal.InvalidOperation:
                 bot.tg_api(bot.send_message, message.chat.id, "Неправильный ввод")
                 return
             bot.tg_api(bot.send_message, message.chat.id, "Введи никнейм получателя или 0, чтобы пропустить.")
-            TEMP_DATA[user.user_id]["Amount"] = message.text
-        elif TEMP_DATA[user.user_id]["Recipient"] is None:
+            data["Amount"] = message.text
+        elif data["Recipient"] is None:
             bot.tg_api(bot.send_message, message.chat.id, "Введи описание")
-            TEMP_DATA[user.user_id]["Recipient"] = message.text
-        elif TEMP_DATA[user.user_id]["Description"] is None:
-            TEMP_DATA[user.user_id]["Description"] = message.text
-            del TEMP_DATA[user.user_id]["_"]
-            if TEMP_DATA[user.user_id]["Recipient"] == "0":
-                del TEMP_DATA[user.user_id]["Recipient"]
-            d_create_code = client.post("Account/CreateCode", **TEMP_DATA[user.user_id])
+            data["Recipient"] = message.text
+        elif data["Description"] is None:
+            data["Description"] = message.text
+            del data["_"]
+            if data["Recipient"] == "0":
+                del data["Recipient"]
+            d_create_code = client.post("Account/CreateCode", **data)
             if "error" in d_create_code:
                 if d_create_code["error"] == "Insufficient funds":
                     bot.tg_api(bot.send_message, message.chat.id, "Недостаточно средств.")
@@ -818,24 +827,22 @@ def text_handler(message):
                     bot.tg_api(bot.send_message, message.chat.id, "Ошибка. Проверь правильность введенных данных.")
             else:
                 bot.tg_api(bot.send_message, message.chat.id, "Код создан: " + str(d_create_code["code"]))
-            del TEMP_DATA[user.user_id]
-            user.status = "m"
-            user.save()
             reply_start(message)
     elif user.status == "s_b3":
-        data = TEMP_DATA[user.user_id]
         if message.text == "0":
             bot.tg_api(bot.send_message, message.chat.id, "Отмена")
-            del TEMP_DATA[user.user_id]
+            TEMP_DATA.pop(user.user_id, None)
             user.status = "m"
             user.save()
             send_wallet(user)
             return
-        if "params" in data:
+        data = TEMP_DATA.get(user.user_id, None)
+        if (data is not None) and (data["_"] == "s_b3") and ("params" in data):
             file_upload_text = (("f1", "Add ID photo"), ("f2", "Add Proof of Address Photo"), ("f3", "Add Selfie"))
             for field, text in file_upload_text:
                 if field not in data["params"]:
                     bot.tg_api(bot.send_message, message.chat.id, text)
+                    break
         else:
             rows = message.text.split("\n")
             if len(rows) == 12:
@@ -858,15 +865,12 @@ def text_handler(message):
                         params[fieldname] = rows[i]
                 else:
                     bot.tg_api(bot.send_message, message.chat.id, "Add ID photo")
-                    TEMP_DATA[user.user_id] = {
-                        "_": "s_b3",
-                        "params": params
-                    }
+                    TEMP_DATA[user.user_id] = {"_": "s_b3", "params": params}
                     return
-                bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3_"], parse_mode="HTML")
+            bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3_"], parse_mode="HTML")
     elif user.status[:4] == "list":
-        if TEMP_DATA.get(user.user_id, {}).get("id", None) == user.status[4:]:
-            data = TEMP_DATA[user.user_id]
+        data = TEMP_DATA.get(user.user_id, None)
+        if (data is not None) and (data["_"] == "list") or (data["id"] == user.status[4:]):
             if message.text.count("-") == 1:
                 d1, d2 = utils.parse_date_period(message.text)
             else:
@@ -902,10 +906,12 @@ def text_handler(message):
             else:
                 text = "Показаны результаты с %s по %s. Введи \"-\" для отмены" % (d1.strftime("%d.%m.%Y"), d2.strftime("%d.%m.%Y"))
             bot.tg_api(bot.send_message, message.from_user.id, text)
-            text, keyboard = get_list_msg(user, TEMP_DATA[user.user_id])
+            text, keyboard = get_list_msg(user, data)
             if keyboard is None:
                 keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["listB" + data["id"]]])
             bot.tg_api(bot.send_message, message.from_user.id, text, reply_markup=keyboard)
+        else:
+            reply_start(message)
 
 
 # request handling
