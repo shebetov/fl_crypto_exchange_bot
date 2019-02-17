@@ -57,11 +57,7 @@ class PrizmBitAPI:
         print(path + " -> " + str(r._content))
         if r.status_code != 200: return None
         try:
-            data = r.json()
-            if "error" in r:
-                return None
-            else:
-                return data
+            return r.json()
         except Exception as e:
             logging.error(e, exc_info=True)
             return None

@@ -175,7 +175,7 @@ def handle_api_error(user):
 
 def try_redeem_code(user, text):
     d_redeem_code = client.post("Account/RedeemCode", Code=text)
-    if d_redeem_code is None: return handle_api_error(user)
+    if "error" in d_redeem_code: return handle_api_error(user)
     if "CodeId" in d_redeem_code:
         bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["redeem_code"], parse_mode="HTML")
         return True
@@ -187,7 +187,7 @@ def send_exchange(user):
     kb_t = []
     kb_d = []
     d_symbols = client.get("MarketData/GetSymbols")
-    if d_symbols is None: return handle_api_error(user)
+    if "error" in d_symbols: return handle_api_error(user)
     all_pairs = [x["code"] for x in d_symbols]
     for row in utils.chunks(all_pairs, 3):
         kb_t.append([])
@@ -226,9 +226,9 @@ def get_list_msg(user, data):
 def get_t_sp_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_ticker = client.get("MarketData/GetTicker", marketName=pair)
-    if d_ticker is None: return handle_api_error(user)
+    if "error" in d_ticker: return handle_api_error(user)
     d_orderbook = client.get("MarketData/GetOrderBook", market=pair, limit=4)
-    if d_orderbook is None: return handle_api_error(user)
+    if "error" in d_orderbook: return handle_api_error(user)
     return (TEXT["t_sp"] % (
         pair, d_ticker["price"], d_ticker["low"], d_ticker["high"], d_ticker["volume"], d_ticker["price"],
         "\n".join(["%s     %s" % (x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
@@ -239,7 +239,7 @@ def get_t_sp_msg(user, pair):
 def get_t_sp_mo_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
-    if d_my_orders is None: return handle_api_error(user)
+    if "error" in d_my_orders: return handle_api_error(user)
     d_my_orders = D_ORD
     if len(d_my_orders) == 0:
         return TEXT["t_sp_mo1"] % pair, None
@@ -288,7 +288,7 @@ def get_t_co_next_status(data):
 def get_w_b1_msg(user):
     TEXT = TEXT_ALL[user.lang]
     d_accounts = client.post("Account/GetUserBalances", data="sss")
-    if d_accounts is None: return handle_api_error(user)
+    if "error" in d_accounts: return handle_api_error(user)
     kb_t = []
     kb_d = []
     is_one_account = len(d_accounts["userAccountList"]) == 1
@@ -305,7 +305,7 @@ def get_w_b1_msg(user):
 def get_w_msg(user):
     TEXT = TEXT_ALL[user.lang]
     d_balances = client.post("Account/GetUserBalances", data="sss")
-    if d_balances is None: return handle_api_error(user)
+    if "error" in d_balances: return handle_api_error(user)
     s = ""
     for account in d_balances["userAccountList"]:
         s += "\n%s %s" % (TEXT["w2"], account["accountType"])
@@ -412,14 +412,14 @@ def callback_inline_handler(call):
                 bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
                 d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
-                if d_all_orders is None: return handle_api_error(user)
+                if "error" in d_all_orders: return handle_api_error(user)
                 if len(d_all_orders) != 0:
                     d_cancel_all = client.post("Trade/CancelOrders", command={"orderIdList": [x["id"] for x in d_all_orders]})
-                    if d_cancel_all is None: return handle_api_error(user)
+                    if "error" in d_cancel_all: return handle_api_error(user)
                 return
         pair = call.data[4:]
         d_symbols = client.get("MarketData/GetSymbols")
-        if d_symbols is None: return handle_api_error(user)
+        if "error" in d_symbols: return handle_api_error(user)
         if pair in [x["code"] for x in d_symbols]:
             keyboard = bot.create_keyboard([[TEXT["t_sp_b2"]], [TEXT["t_sp_b3"]], [TEXT["t_sp_b4"]], [TEXT["t_sp_b5"]]], one_time=False)
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["loading"], reply_markup=keyboard, parse_mode="HTML")
@@ -434,7 +434,7 @@ def callback_inline_handler(call):
     elif call.data[0] == "w":
         if call.data[1:5] == "_b1_":
             d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[5:], GenerateNewAddress=False)
-            if d_address is None: return handle_api_error(user)
+            if "error" in d_address: return handle_api_error(user)
             keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]])
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b1__"] + "\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"]))), reply_markup=keyboard, parse_mode="HTML")
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
@@ -561,7 +561,7 @@ def text_handler(message):
             bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b4_"], reply_markup=bot.create_keyboard([[TEXT["w_b4_b1"], TEXT["w_b4_b2"]], [TEXT["w_b4_b3"], TEXT["w_b4_b4"]], [TEXT["cancel_btn"]]], one_time=False), parse_mode="HTML")
         elif message.text == TEXT["w_b2_b1"]:
             d_accounts = client.post("Account/GetUserBalances", data="sss")
-            if d_accounts is None: return handle_api_error(user)
+            if "error" in d_accounts: return handle_api_error(user)
             currs = set()
             for account in d_accounts["userAccountList"]:
                 for balance in account["balanceList"]:
@@ -574,7 +574,7 @@ def text_handler(message):
             bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_1"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
         elif message.text == TEXT["w_b2_b2"]:
             d_accounts = client.post("Account/GetUserBalances", data="sss")
-            if d_accounts is None: return handle_api_error(user)
+            if "error" in d_accounts: return handle_api_error(user)
             currs = set()
             for account in d_accounts["userAccountList"]:
                 for balance in account["balanceList"]:
@@ -596,7 +596,7 @@ def text_handler(message):
                 api_params=dict(Offset=0, Limit=99999, SortDesc=False)
             )
             d_transactions = client.post(data["api_path"], **data["api_params"])
-            if d_transactions is None: return handle_api_error(user)
+            if "error" in d_transactions: return handle_api_error(user)
             data["raw"] = d_transactions.get("transactionList", [])
             #data["raw"] = D_TRANS["transactionList"]
             data["pages_count"] = math.ceil(len(data["raw"])/10)
@@ -619,7 +619,7 @@ def text_handler(message):
                 api_params=dict(Offset=0, Limit=99999, SortDesc=False)
             )
             d_trades = client.post(data["api_path"], **data["api_params"])
-            if d_trades is None: return handle_api_error(user)
+            if "error" in d_trades: return handle_api_error(user)
             data["raw"] = d_trades
             #data["raw"] = D_TRADES
             data["pages_count"] = math.ceil(len(data["raw"])/10)
@@ -642,7 +642,7 @@ def text_handler(message):
                 api_params={"limit":99999,"offset":0,"sort":"dateCreated","searchString":"","address":"","publicKey":"","tagMessage":"","amountFrom":"","amountTo":"","transactionsCountFrom":"","transactionsCountTo":"","isUsed":None,"currencyIdList":[]}
             )
             d_addresses = client.post(data["api_path"], **data["api_params"])
-            if d_addresses is None: return handle_api_error(user)
+            if "error" in d_addresses: return handle_api_error(user)
             data["raw"] = d_addresses.get("addressList", [])
             data["raw"] = D_ADDR["addressList"]
             data["pages_count"] = math.ceil(len(data["raw"])/10)
@@ -657,7 +657,7 @@ def text_handler(message):
         elif message.text == TEXT["w_b4_b4"]:
             return
             d_codes = client.post("Account/GetUserTrades", Offset=0, Limit=99999, SortDesc=False)
-            if d_codes is None: return handle_api_error(user)
+            if "error" in d_codes: return handle_api_error(user)
             #d_codes = D_CODES
             data = dict(
                 _="list",
@@ -728,7 +728,7 @@ def text_handler(message):
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 del data["_"]
                 d_create_order = client.post("Trade/TestOrder", **data)
-                if d_create_order is None: return handle_api_error(user)
+                if "error" in d_create_order: return handle_api_error(user)
                 TEMP_DATA.pop(user.user_id, None)
             else:
                 user.status = "t_sp_co" + next_step_id
@@ -739,11 +739,11 @@ def text_handler(message):
                 if message.text.isdigit():
                     order_id = int(message.text)
                     d_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
-                    if d_orders is None: return handle_api_error(user)
+                    if "error" in d_orders: return handle_api_error(user)
                     #d_orders = D_ORD
                     if order_id in [x["id"] for x in d_orders]:
                         d_cancel_order = client.post("Trade/CancelOrder", OrderId=order_id)
-                        if d_cancel_order is None: return handle_api_error(user)
+                        if "error" in d_cancel_order: return handle_api_error(user)
                         bot.tg_api(bot.send_message, message.chat.id, TEXT["t_sp_mo_c"] % order_id, parse_mode="HTML")
                     text, keyboard = get_t_sp_mo_msg(user, pair)
                     bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
@@ -772,7 +772,7 @@ def text_handler(message):
                     api_params=dict(Market=pair, Offset=0, Limit=99999, SortDesc=False)
                 )
                 d_trades = client.post(data["api_path"], **data["api_params"])
-                if d_trades is None: return handle_api_error(user)
+                if "error" in d_trades: return handle_api_error(user)
                 data["raw"] = d_trades
                 #data["raw"] = D_TRADES
                 data["pages_count"] = math.ceil(len(data["raw"])/10)
@@ -786,7 +786,7 @@ def text_handler(message):
                     user.save()
             elif message.text == TEXT["t_sp_b5"]:
                 d_chart = client.load_24hchart_image(pair)
-                if d_chart is None: return handle_api_error(user)
+                if "error" in d_chart: return handle_api_error(user)
                 bot.tg_api(bot.send_photo, message.chat.id, d_chart, TEXT["t_sp_graph"]%pair, reply_markup=bot.create_keyboard([[TEXT["back_btn"]]], [["back_t_sp_b5"+pair]]), parse_mode="HTML")
             else:
                 if not try_redeem_code(user, message.text):
@@ -826,7 +826,6 @@ def text_handler(message):
             data["Details"] = message.text
             del data["_"]
             d_withdraw = client.post("Account/CreateWithdrawal", **data)
-            if d_withdraw is None: return handle_api_error(user)
             if "error" in d_withdraw:
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_invalid2"], parse_mode="HTML")
             else:
@@ -862,7 +861,6 @@ def text_handler(message):
             if data["Recipient"] == "0":
                 del data["Recipient"]
             d_create_code = client.post("Account/CreateCode", **data)
-            if d_create_code is None: return handle_api_error(user)
             if "error" in d_create_code:
                 if d_create_code["error"] == "Insufficient funds":
                     bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b2_ne"], parse_mode="HTML")
@@ -931,17 +929,17 @@ def text_handler(message):
                 data["api_params"]["To"] = d2.timestamp()
             if data["type"] == "trade":
                 d_trades = client.post(data["api_path"], **data["api_params"])
-                if d_trades is None: return handle_api_error(user)
+                if "error" in d_trades: return handle_api_error(user)
                 data["raw"] = d_trades
                 #data["raw"] = D_TRADES
             elif data["type"] == "transaction":
                 d_transactions = client.post(data["api_path"], **data["api_params"])
-                if d_transactions is None: return handle_api_error(user)
+                if "error" in d_transactions: return handle_api_error(user)
                 data["raw"] = d_transactions.get("transactionList", [])
                 #data["raw"] = D_TRANS["transactionList"]
             elif data["type"] == "address":
                 d_addresses = client.post(data["api_path"], **data["api_params"])
-                if d_addresses is None: return handle_api_error(user)
+                if "error" in d_addresses: return handle_api_error(user)
                 data["raw"] = d_addresses.get("addressList", [])
                 #data["raw"] = D_ADDR["addressList"]
             elif data["type"] == "code":
