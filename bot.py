@@ -355,6 +355,10 @@ def handle_photo(message):
 def callback_inline_handler(call):
     user = get_user(call.from_user.id)
     if call.data[:4] == "t_sp":
+        if user.status[:4] == "t_sp" or False:
+            reply_start(call)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+            return
         if call.data[4:7] == "_b1":
             pair = call.data[7:]
             text, keyboard = get_t_sp_msg(pair)
@@ -436,6 +440,10 @@ def callback_inline_handler(call):
             reply_start(call)
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[:4] == "list":
+        if user.status[:4] == "list" or False:
+            reply_start(call)
+            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+            return
         action = call.data[4]
         data = TEMP_DATA[user.user_id]
         if action == "<":
@@ -501,9 +509,9 @@ def reply_start(message):
         user = User.objects.create(user_id=message.from_user.id, name=message.from_user.first_name)
     reply_markup = bot.create_keyboard([[TEXT["m_b1"]], [TEXT["m_b2"]], [TEXT["m_b3"]]], one_time=False)
     bot.tg_api(bot.send_message, user.user_id, TEXT["m_n"], reply_markup=reply_markup, parse_mode="HTML")
+    TEMP_DATA.pop(user.user_id, False)
     user.status = "m"
     user.save()
-    TEMP_DATA.pop(user.user_id, False)
 
 
 @bot.message_handler(content_types=['text'])
