@@ -112,7 +112,7 @@ TEXT_ALL["ru"] = {
     "canceled": "Отмена",
     "redeem_code": "Код принят.",
     "loading": "Загрузка...",
-    "api_error": "Ошибка в API. Попробуйте позже."
+    "api_error": "Ошибка в API. Попробуйте позже. Текст ошибки: %s"
 }
 
 
@@ -228,7 +228,7 @@ TEXT_ALL["en"] = {
     "canceled": "Canceled",
     "redeem_code": "Code accepted.",
     "loading": "Loading...",
-    "api_error": "Api error. Try again later."
+    "api_error": "Api error. Try again later. Error text: %s"
 }
 
 _keys = list(TEXT_ALL.keys())
