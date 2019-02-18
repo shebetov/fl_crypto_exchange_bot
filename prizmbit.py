@@ -86,10 +86,14 @@ class PrizmBitAPI:
             plt = generate_chart(pair, d_chart["t"], d_chart["o"], d_chart["h"], d_chart["l"], d_chart["c"], d_chart["v"])
             file_name = "files/chart24h_" + pair.replace("/", "-") + ".png"
             plt.savefig(file_name)
-            return upload_image(file_name)
+            url = upload_image(file_name)
+            if url is None:
+            	return {"error": "Image upload failed."}
+            else:
+            	return url
         except Exception as e:
             logging.error(e, exc_info=True)
-            return {"error": "Error while generating image"}
+            return {"error": "Error while generating image."}
 
 
 class PrizmBitWebsocket:

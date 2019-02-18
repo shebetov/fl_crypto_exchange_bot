@@ -988,7 +988,7 @@ def handle_requests(environ, start_response):
 
 if __name__ == "__main__":
     if config.POLLING:
-        #bot.remove_webhook()
+        bot.remove_webhook()
         while True:
             bot.polling(none_stop=True)
     else:
@@ -999,6 +999,7 @@ if __name__ == "__main__":
         except:
             pass
         bjoern.listen(handle_requests, "unix:" + config.SOCKET_PATH)
-        shutil.chown(config.SOCKET_PATH, 'username', 'usergroup')
+        shutil.chown(config.SOCKET_PATH, 'alex', 'www-data')
         os.chmod(config.SOCKET_PATH, 0o770)
         bjoern.run()
+        logging.info("EXIT")
