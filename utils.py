@@ -1,3 +1,5 @@
+import sys
+import logging
 from datetime import datetime
 import dateparser
 from threading import Thread
@@ -37,3 +39,18 @@ def parse_date_period(text):
     if len(d2_raw) != 0:
         d2 = dateparser.parse(d2_raw, languages=['ru', 'en'], settings={'PREFER_DATES_FROM': 'past'})
     return d1, d2
+
+def setup_logger(logger, level, filename):
+    formatter = logging.Formatter('%(levelname)-8s[%(asctime)s: (%(pathname)-100s)%(filename)-20s:%(lineno)-4d] %(message)s')
+    formatter_console = logging.Formatter('%(levelname)-8s[%(asctime)s %(filename)-20s:%(lineno)-4d] %(message)s')
+    fh = logging.FileHandler(filename, 'a', 'utf-8')
+    fh.setLevel(level)
+    fh.setFormatter(formatter)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setLevel(level)
+    sh.setFormatter(formatter_console)
+    logging.basicConfig(format=formatter, level=level, handlers=[fh, sh])
+    logger.setLevel(level)
+    logger.addHandler(fh)
+    logger.addHandler(sh)
+    return logger

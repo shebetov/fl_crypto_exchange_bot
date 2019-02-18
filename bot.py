@@ -8,12 +8,15 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fl_crypto_exchange_bot.settings
 django.setup()
 
 import logging
+import config
+import utils
+
+logger = utils.setup_logger(logging.getLogger("prizmbitbot"), level=(logging.DEBUG if config.DEBUG else logging.INFO), filename=config.LOGS_FILE)
+
 import time
 from datetime import datetime
 import decimal
-import config
 from text_data import TEXT_ALL
-import utils
 import math
 import pandas
 import dateparser
@@ -26,8 +29,6 @@ from tgbot.models import *
 from prizmbit import PrizmBitAPI
 
 
-logging.basicConfig(level=logging.DEBUG)
-logging.basicConfig(format='%(levelname)-8s[%(asctime)s: (%(pathname)s)%(filename)-20s:%(lineno)-4d] %(message)s', level=(logging.DEBUG if config.DEBUG else logging.INFO), handlers=[logging.FileHandler(config.LOGS_FILE, 'a', 'utf-8')])  # , logging.StreamHandler(sys.stdout)])
 sentry_sdk.init(dsn=config.SENTRY_API_URL, integrations=[LoggingIntegration()])
 
 bot = UltraTeleBot(config.BOT_TOKEN)
@@ -162,7 +163,7 @@ def log_message(sender, user_id, message=None, intent=None):
             elif sender == "agent":
                 f.write("[" + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "] agent:                     " + str(message) + "\n")
     except:
-        logging.error("Log Message", exc_info=True)
+        logger.error("Log Message", exc_info=True)
 
 
 # Telegram Funcs And Handlers
@@ -175,7 +176,6 @@ def handle_api_error(user):
 
 def try_redeem_code(user, text):
     d_redeem_code = client.post("Account/RedeemCode", Code=text)
-    if "error" in d_redeem_code: return handle_api_error(user)
     if "CodeId" in d_redeem_code:
         bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["redeem_code"], parse_mode="HTML")
         return True
@@ -338,7 +338,7 @@ def handle_photo(message):
             if file_upload_text[-1][0] in data["params"]:
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3__"], parse_mode="HTML")
                 reply_start(message)
-                print(data["params"])
+                logger.info(data["params"])
                 # client.post("https://front.prizmbit.com/api/fo/Login/UploadUserFiles", )  # Content-Type: multipart/form-data; Authorization: 13bf29729b1496796efb2f998c27b2c9096297966d27c755118993278a025419
                 """
                 Form Data
@@ -365,7 +365,7 @@ def handle_photo(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline_handler(call):
-    print(call.data)
+    logger.info(call.data)
     user = get_user(call.from_user.id)
     TEXT = TEXT_ALL[user.lang]
     if call.data[:4] == "t_sp":
@@ -545,7 +545,7 @@ def reply_start(message=None, user=None):
 
 @bot.message_handler(content_types=['text'])
 def text_handler(message):
-    print(message.text)
+    logger.info(message.text)
     user = get_user(message.from_user.id)
     if user is None: reply_start(message)
     TEXT = TEXT_ALL[user.lang]
@@ -975,11 +975,11 @@ def handle_requests(environ, start_response):
     try:
         start_response('200 OK', [('Content-Type', 'application/json')])
         update = telebot.types.Update.de_json(environ["wsgi.input"].read().decode("utf-8"))
-        logging.info("TG UPDATE " + str(update))
+        logger.info("TG UPDATE " + str(update))
         bot.process_new_updates([update])
         return "!".encode()
     except Exception as e:
-        logging.critical("Exception in webhook on_post func: " + str(e), exc_info=True)
+        logger.critical("Exception in webhook on_post func: " + str(e), exc_info=True)
         try:
             bot.tg_api(bot.send_message, config.TG_ADMIN_ID, "Cant handle update, because of error: " + str(e))
         except:
@@ -1002,4 +1002,4 @@ if __name__ == "__main__":
         shutil.chown(config.SOCKET_PATH, 'alex', 'www-data')
         os.chmod(config.SOCKET_PATH, 0o770)
         bjoern.run()
-        logging.info("EXIT")
+        logger.info("EXIT")

@@ -12,7 +12,7 @@ import websocket
 import threading
 
 
-logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("prizmbitbot")
 
 
 def cache_request(func):
@@ -68,7 +68,7 @@ class PrizmBitAPI:
         try:
             return r.json()
         except Exception as e:
-            logging.error(e, exc_info=True)
+            logger.error(e, exc_info=True)
             return {"error": "No response from API"}
 
     def get(self, path, **params):
@@ -92,7 +92,7 @@ class PrizmBitAPI:
             else:
             	return url
         except Exception as e:
-            logging.error(e, exc_info=True)
+            logger.error(e, exc_info=True)
             return {"error": "Error while generating image."}
 
 
@@ -104,20 +104,20 @@ class PrizmBitWebsocket:
 
     def __init__(self, init_data):
         """Connect to the websocket and initialize data stores."""
-        #self.logger = logging.getLogger("prizmbit_webscoket")
-        #_sh = logging.FileHandler("logs/ws_logs.txt")
-        #_sh.setLevel(logging.DEBUG)
-        #_sh.setFormatter(logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"))
+        #self.logger = logger.getLogger("prizmbit_webscoket")
+        #_sh = logger.FileHandler("logs/ws_logs.txt")
+        #_sh.setLevel(logger.DEBUG)
+        #_sh.setFormatter(logger.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"))
         #self.logger.addHandler(_sh)
-        logging.debug("Initializing WebSocket.")
+        logger.debug("Initializing WebSocket.")
 
         self.exited = False
 
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        logging.info("Connecting...")
+        logger.info("Connecting...")
         self.__connect(init_data)
-        logging.info("Got all market data. Starting.")
+        logger.info("Got all market data. Starting.")
 
     def exit(self):
         """Call this to exit - will close websocket."""
@@ -126,7 +126,7 @@ class PrizmBitWebsocket:
 
     def __connect(self, init_data):
         """Connect to the websocket in a thread."""
-        logging.debug("Starting thread")
+        logger.debug("Starting thread")
 
         self.ws = websocket.WebSocketApp(
             self.URL,
@@ -140,7 +140,7 @@ class PrizmBitWebsocket:
         self.wst.daemon = True
         self.wst.start()
         self._all_wss.append((self.ws, self.wst))
-        logging.debug("Started thread")
+        logger.debug("Started thread")
 
         # Wait for connect before continuing
         conn_timeout = 5
@@ -148,7 +148,7 @@ class PrizmBitWebsocket:
             time.sleep(1)
             conn_timeout -= 1
         if not conn_timeout:
-            logging.error("Couldn't connect to WS! Exiting.")
+            logger.error("Couldn't connect to WS! Exiting.")
             self.exit()
             raise websocket.WebSocketTimeoutException(
                 "Couldn't connect to WS! Exiting."
@@ -157,23 +157,23 @@ class PrizmBitWebsocket:
 
     def __on_message(self, message):
         """Handler for parsing WS messages."""
-        logging.info(message)
+        logger.info(message)
         with open("ws_dump.txt", "a") as f:
             f.write(message + "\n")
 
     def __on_error(self, error):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited:
-            logging.error("Error : %s" % error)
+            logger.error("Error : %s" % error)
             raise websocket.WebSocketException(error)
 
     def __on_open(self):
         """Called when the WS opens."""
-        logging.debug("Websocket Opened.")
+        logger.debug("Websocket Opened.")
 
     def __on_close(self):
         """Called on websocket close."""
-        logging.info("Websocket Closed")
+        logger.info("Websocket Closed")
 
 #ws = PrizmBitWebsocket("{marketId:1}")
 #ws = PrizmBitWebsocket('{clientId:"ca494cadf96b4634aa9e4d8c777a3509f85628c7c3bc4fdf94d2c690c126d888"}')
