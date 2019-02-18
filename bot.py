@@ -439,9 +439,8 @@ def callback_inline_handler(call):
             if call.data[5:7] == "b1":
                 d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[8:], GenerateNewAddress=(call.data[7] == "t"))
                 if "error" in d_address: return handle_api_error(user)
-                keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]])
-                bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b1__"] + "\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"]))), reply_markup=keyboard, parse_mode="HTML")
-                bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+                text = TEXT["w_b1__"] + "\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"])))
+                bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]]), parse_mode="HTML")
             elif call.data[5:7] == "b2":
                 text, keyboard = get_w_b1_msg(user, (not call.data[7] == "t"))
                 bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="HTML")
