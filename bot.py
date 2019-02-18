@@ -285,7 +285,8 @@ def get_t_co_next_status(data):
     return "5"
 
 
-def get_w_b1_msg(user):
+def get_w_b1_msg(user, is_generate_new=False):
+    is_generate_new = "t" if is_generate_new else "f"
     TEXT = TEXT_ALL[user.lang]
     d_accounts = client.post("Account/GetUserBalances", data="sss")
     if "error" in d_accounts: return handle_api_error(user)
@@ -298,8 +299,10 @@ def get_w_b1_msg(user):
             balances.append((account["accountType"], balance))
     for row in utils.chunks(balances, 3):
         kb_t.append([x[1]["currencyTitle"] + ("" if is_one_account else " (%s)"%x[0]) for x in row])
-        kb_d.append(["w_b1_"+str(x[1]["id"]) for x in row])
-    return TEXT["w_b1_"], bot.create_keyboard(kb_t, kb_d)
+        kb_d.append(["w_b1_b1"+is_generate_new+str(x[1]["id"]) for x in row])
+    kb_t.append([TEXT["w_b1_b2" + is_generate_new]])
+    kb_d.append(["w_b1_b2" + is_generate_new])
+    return TEXT["w_b1_1"], bot.create_keyboard(kb_t, kb_d)
 
 
 def get_w_msg(user):
@@ -433,11 +436,15 @@ def callback_inline_handler(call):
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
     elif call.data[0] == "w":
         if call.data[1:5] == "_b1_":
-            d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[5:], GenerateNewAddress=False)
-            if "error" in d_address: return handle_api_error(user)
-            keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]])
-            bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b1__"] + "\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"]))), reply_markup=keyboard, parse_mode="HTML")
-            bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+            if call.data[5:7] == "b1":
+                d_address = client.post("Account/GetCryptoAddress", BalanceId=call.data[8:], GenerateNewAddress=(call.data[7] == "t"))
+                if "error" in d_address: return handle_api_error(user)
+                keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]])
+                bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b1__"] + "\n  " + str(d_address["address"]) + ("" if d_address["publicKey"] is None else ("\npublicKey:\n" + str(d_address["publicKey"]))), reply_markup=keyboard, parse_mode="HTML")
+                bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
+            elif call.data[5:7] == "b2":
+                text, keyboard = get_w_b1_msg(user, (not call.data[7] == "t"))
+                bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="HTML")
         elif call.data[1:7] == "_b2_b1":
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b2_b1_2"], parse_mode="HTML")
             TEMP_DATA[user.user_id] = {"_": "w_b2_b1", "Currency": call.data[7:], "Address": None, "Amount": None, "Details": None}
@@ -541,6 +548,7 @@ def reply_start(message=None, user=None):
 def text_handler(message):
     print(message.text)
     user = get_user(message.from_user.id)
+    if user is None: reply_start(message)
     TEXT = TEXT_ALL[user.lang]
     if user.status == "m":
         if message.text in (TEXT["cancel_btn"], TEXT["back_btn"]):

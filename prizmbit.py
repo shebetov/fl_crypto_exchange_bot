@@ -23,7 +23,6 @@ def cache_request(func):
         "MarketData/GetOrderBook": 3,
         "Account/OpenOrders": 3,
         "Account/GetUserBalances": 3,
-        "Account/GetCryptoAddress": 10,
         "Account/GetUserTransactions": 5,
         "Account/GetUserTrades": 3,
         "Transaction/GetUserAddressList": 10
