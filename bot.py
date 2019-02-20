@@ -231,8 +231,8 @@ def get_t_sp_msg(user, pair):
     if "error" in d_orderbook: return handle_api_error(user, d_orderbook)
     return (TEXT["t_sp"] % (
         pair, d_ticker["price"], d_ticker["low"], d_ticker["high"], d_ticker["volume"], d_ticker["price"],
-        "\n".join(["%s     %s" % (x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
-        "\n".join(["%s     %s" % (x["price"], x["quantity"]) for x in d_orderbook["bids"]])
+        "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
+        "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["bids"]])
     )), bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_b1"]]], [["back_t_sp", "t_sp_b1" + pair]])
 
 
@@ -270,7 +270,7 @@ def get_t_co_msg(user, data):
          [TEXT["cancel_btn"], TEXT["t_sp_co_b5"]]],
         [["t_sp_co_b1", "t_sp_co_b2"], ["t_sp_co_b3"], ["t_sp_co_b4"], ["back_t_sp_co" + data["Market"], "t_sp_co_b5"]]
     )
-    return TEXT["t_sp_co"], keyboard
+    return TEXT["t_sp_co"] % data["Market"], keyboard
 
 
 def get_t_co_next_status(data):
@@ -806,51 +806,48 @@ def text_handler(message):
             user.status = "t_sp" + pair
             user.save()
     elif user.status == "w_b2_b1":
-        if message.text == "0":
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
-            TEMP_DATA.pop(user.user_id, None)
-            user.status = "m"
-            user.save()
-            text, keyboard = get_w_msg(user)
-            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
-            return
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "w_b2_b1"):
             reply_start(message)
             return
-        if data["Address"] is None:
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_3"], parse_mode="HTML")
-            data["Address"] = message.text
-        elif data["Amount"] is None:
-            try:
-                decimal.Decimal(message.text)
-            except decimal.InvalidOperation:
-                bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_invalid"], parse_mode="HTML")
-                return
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_4"], parse_mode="HTML")
-            data["Amount"] = message.text
-        elif data["Details"] is None:
-            data["Details"] = message.text
-            del data["_"]
-            d_withdraw = client.post("Account/CreateWithdrawal", **data)
-            if "error" in d_withdraw:
-                bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_invalid2"], parse_mode="HTML")
-            else:
-                return handle_api_error(user, d_withdraw)
-                #bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_ok"] % str(d_withdraw["transactionStatus"]), parse_mode="HTML")
-            reply_start(message)
+        for _ in (None, ):
+            if data["Address"] is None:
+                if message.text == "0": break
+                bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_3"], parse_mode="HTML")
+                data["Address"] = message.text
+            elif data["Amount"] is None:
+                if message.text == "0": break
+                try:
+                    decimal.Decimal(message.text)
+                except decimal.InvalidOperation:
+                    bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_invalid"], parse_mode="HTML")
+                    return
+                bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_4"], parse_mode="HTML")
+                data["Amount"] = message.text
+            elif data["Details"] is None:
+                if message.text == "0":
+                    del data["Details"]
+                else:
+                    data["Details"] = message.text
+                del data["_"]
+                d_withdraw = client.post("Account/CreateWithdrawal", **data)
+                if "error" in d_withdraw:
+                    bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_invalid2"], parse_mode="HTML")
+                else:
+                    return handle_api_error(user, d_withdraw)
+                    # bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_ok"] % str(d_withdraw["transactionStatus"]), parse_mode="HTML")
+                reply_start(message)
+            return
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
+        TEMP_DATA.pop(user.user_id, None)
+        user.status = "m"
+        user.save()
+        text, keyboard = get_w_msg(user)
+        bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
     elif user.status == "w_b2_b2":
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "w_b2_b2"):
             reply_start(message)
-            return
-        
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
-            TEMP_DATA.pop(user.user_id, None)
-            user.status = "m"
-            user.save()
-            text, keyboard = get_w_msg(user)
-            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             return
         for _ in (None, ):
             if data["Amount"] is None:
@@ -866,8 +863,10 @@ def text_handler(message):
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b2_4"], parse_mode="HTML")
                 data["Recipient"] = message.text
             elif data["Description"] is None:
-                if message.text == "0": break
-                data["Description"] = message.text
+                if message.text == "0":
+                    del data["Description"]
+                else:
+                    data["Description"] = message.text
                 del data["_"]
                 if data["Recipient"] == "0":
                     del data["Recipient"]
