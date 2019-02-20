@@ -3,8 +3,8 @@ import hashlib
 import hmac
 import requests
 import time
-import json
 import logging
+import utils
 from chart_image import generate_chart
 from image_upload import upload_image
 from cachetools.func import ttl_cache
@@ -32,7 +32,7 @@ def cache_request(func):
         ttl = ttl_config.get(path, None)
         if ttl is None:
             return func(self, method, path, **kwargs)
-        key = (method, path,) + tuple(kwargs.values())
+        key = hash((method, path, utils.to_hashable_dict(kwargs)))
         cached_rv = memo.get(key, None)
         if (cached_rv is None) or (cached_rv[1] < time.time()):
             rv = func(self, method, path, **kwargs)
@@ -63,13 +63,17 @@ class PrizmBitAPI:
                 "X-Signature": hmac.new(self.c_secret, params.encode('utf8'), hashlib.sha256).hexdigest()
             }
         )
-        print(path + "("+params+") -> " + str(r._content))
-        if r.status_code != 200: return None
+        logger.debug(path + "("+params+") -> " + str(r._content))
         try:
-            return r.json()
+            d = r.json()
+            logger.debug(d)
+            if d is None:
+                return {"error": {"message": "No response from API"}}
+            else:
+                return d
         except Exception as e:
-            logger.error(e, exc_info=True)
-            return {"error": "No response from API"}
+            logger.debug(e, exc_info=True)
+            return {"error": {"message": "No response from API"}}
 
     def get(self, path, **params):
         return self._request("get", path, **params)
@@ -88,12 +92,12 @@ class PrizmBitAPI:
             plt.savefig(file_name)
             url = upload_image(file_name)
             if url is None:
-            	return {"error": "Image upload failed."}
+                return {"error": {"message": "Image upload failed."}}
             else:
-            	return url
+                return url
         except Exception as e:
             logger.error(e, exc_info=True)
-            return {"error": "Error while generating image."}
+            return {"error": {"message": "Error while generating image."}}
 
 
 class PrizmBitWebsocket:

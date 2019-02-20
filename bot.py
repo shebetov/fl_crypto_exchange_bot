@@ -169,6 +169,12 @@ def log_message(sender, user_id, message=None, intent=None):
 # Telegram Funcs And Handlers
 
 
+def reset_user_data(user):
+    TEMP_DATA.pop(user.user_id, None)
+    user.status = "m"
+    user.save()
+
+
 def handle_api_error(user, api_response):
     bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["api_error"] % api_response["error"]["message"])
     reply_start(user=user)
@@ -474,16 +480,15 @@ def callback_inline_handler(call):
         elif action == ">":
             data["current_page"] = 0 if data["current_page"] == (data["pages_count"] - 1) else (data["current_page"] + 1)
         elif action == "B":
-            TEMP_DATA.pop(user.user_id, None)
             if data["path"] == "w":
-                user.status = "m"
-                user.save()
                 text, keyboard = get_w_msg(user)
                 bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
+                reset_user_data(user)
             elif data["path"][0] == "t":
                 pair = data["path"][1:]
                 t, kb = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, call.message.chat.id, t, reply_markup=kb, parse_mode="HTML")
+                TEMP_DATA.pop(user.user_id, None)
                 user.status = "t_sp" + pair
                 user.save()
             bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
@@ -509,8 +514,6 @@ def callback_inline_handler(call):
     elif call.data[:5] == "back_":
         path = call.data[5:]
         if path == "t_sp":
-            user.status = "m"
-            user.save()
             reply_start(user=user)
         elif path[:7] in ("t_sp_mo", "t_sp_b5", "t_sp_co"):
             pair = path[7:]
@@ -538,9 +541,7 @@ def reply_start(message=None, user=None):
     TEXT = TEXT_ALL[user.lang]
     reply_markup = bot.create_keyboard([[TEXT["m_b1"]], [TEXT["m_b2"]], [TEXT["m_b3"]]], one_time=False)
     bot.tg_api(bot.send_message, user.user_id, TEXT["m_n"], reply_markup=reply_markup, parse_mode="HTML")
-    TEMP_DATA.pop(user.user_id, None)
-    user.status = "m"
-    user.save()
+    reset_user_data(user)
 
 
 @bot.message_handler(content_types=['text'])
@@ -549,155 +550,174 @@ def text_handler(message):
     user = get_user(message.from_user.id)
     if user is None: reply_start(message)
     TEXT = TEXT_ALL[user.lang]
-    if user.status == "m":
-        if message.text in (TEXT["cancel_btn"], TEXT["back_btn"]):
-            reply_start(message)
-        elif message.text == TEXT["m_b1"]:
-            send_exchange(user)
-        elif message.text == TEXT["m_b2"]:
-            text, keyboard = get_w_msg(user)
-            bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
-        elif message.text == TEXT["m_b3"]:
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["s"], reply_markup=bot.create_keyboard([[TEXT["s_b2"], TEXT["s_b3"]], [TEXT["back_btn"], TEXT["s_b1"]]]), parse_mode="HTML")
-        elif message.text == TEXT["w_b1"]:
-            text, keyboard = get_w_b1_msg(user)
-            bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-        elif message.text == TEXT["w_b2"]:
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_"], reply_markup=bot.create_keyboard([[TEXT["w_b2_b1"]], [TEXT["w_b2_b2"]], [TEXT["cancel_btn"]]]), parse_mode="HTML")
-        elif message.text == TEXT["w_b4"]:
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b4_"], reply_markup=bot.create_keyboard([[TEXT["w_b4_b1"], TEXT["w_b4_b2"]], [TEXT["w_b4_b3"], TEXT["w_b4_b4"]], [TEXT["cancel_btn"]]], one_time=False), parse_mode="HTML")
-        elif message.text == TEXT["w_b2_b1"]:
-            d_accounts = client.post("Account/GetUserBalances", data="sss")
-            if "error" in d_accounts: return handle_api_error(user, d_accounts)
-            currs = set()
-            for account in d_accounts["userAccountList"]:
-                for balance in account["balanceList"]:
-                    currs.add(balance["currencyTitle"])
-            kb_t = []
-            kb_d = []
-            for row in utils.chunks(list(currs), 3):
-                kb_t.append([x for x in row])
-                kb_d.append(["w_b2_b1"+x for x in row])
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_1"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
-        elif message.text == TEXT["w_b2_b2"]:
-            d_accounts = client.post("Account/GetUserBalances", data="sss")
-            if "error" in d_accounts: return handle_api_error(user, d_accounts)
-            currs = set()
-            for account in d_accounts["userAccountList"]:
-                for balance in account["balanceList"]:
-                    currs.add(balance["currencyTitle"])
-            kb_t = []
-            kb_d = []
-            for row in utils.chunks(list(currs), 3):
-                kb_t.append([x for x in row])
-                kb_d.append(["w_b2_b2"+x for x in row])
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b2_1"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
-        elif message.text == TEXT["w_b4_b1"]:
-            data = dict(
-                _="list",
-                id=str(int(time.time())),
-                path="w",
-                type="transaction",
-                current_page=0,
-                api_path="Account/GetUserTransactions",
-                api_params=dict(Offset=0, Limit=99999, SortDesc=False)
-            )
-            d_transactions = client.post(data["api_path"], **data["api_params"])
-            if "error" in d_transactions: return handle_api_error(user, d_transactions)
-            data["raw"] = d_transactions.get("transactionList", [])
-            #data["raw"] = D_TRANS["transactionList"]
-            data["pages_count"] = math.ceil(len(data["raw"])/10)
-            data["title_ne"] = TEXT["list_transaction_ne"]
-            data["title"] = TEXT["list_transaction"]
-            TEMP_DATA[user.user_id] = data
-            text, keyboard = get_list_msg(user, data)
-            bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-            if keyboard is not None: # not good
-                user.status = "list" + data["id"]
-                user.save()
-        elif message.text == TEXT["w_b4_b2"]:
-            data = dict(
-                _="list",
-                id=str(int(time.time())),
-                path="w",
-                type="trade",
-                current_page=0,
-                api_path="Account/GetUserTrades",
-                api_params=dict(Offset=0, Limit=99999, SortDesc=False)
-            )
-            d_trades = client.post(data["api_path"], **data["api_params"])
-            if "error" in d_trades: return handle_api_error(user, d_trades)
-            data["raw"] = d_trades
-            #data["raw"] = D_TRADES
-            data["pages_count"] = math.ceil(len(data["raw"])/10)
-            data["title_ne"] = TEXT["list_trade_ne"]
-            data["title"] = TEXT["list_trade"]
-            TEMP_DATA[user.user_id] = data
-            text, keyboard = get_list_msg(user, data)
-            bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-            if keyboard is not None: # not good
-                user.status = "list" + data["id"]
-                user.save()
-        elif message.text == TEXT["w_b4_b3"]:
-            data = dict(
-                _="list",
-                id=str(int(time.time())),
-                path="w",
-                type="address",
-                current_page=0,
-                api_path="Transaction/GetUserAddressList",
-                api_params={"limit":99999,"offset":0,"sort":"dateCreated","searchString":"","address":"","publicKey":"","tagMessage":"","amountFrom":"","amountTo":"","transactionsCountFrom":"","transactionsCountTo":"","isUsed":None,"currencyIdList":[]}
-            )
-            d_addresses = client.post(data["api_path"], **data["api_params"])
-            if "error" in d_addresses: return handle_api_error(user, d_addresses)
-            data["raw"] = d_addresses.get("addressList", [])
-            #data["raw"] = D_ADDR["addressList"]
-            data["pages_count"] = math.ceil(len(data["raw"])/10)
-            data["title_ne"] = TEXT["list_address_ne"]
-            data["title"] = TEXT["list_address"]
-            TEMP_DATA[user.user_id] = data
-            text, keyboard = get_list_msg(user, data)
-            bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-            if keyboard is not None: # not good
-                user.status = "list" + data["id"]
-                user.save()
-        elif message.text == TEXT["w_b4_b4"]:
-            return
-            d_codes = client.post("Account/GetUserTrades", Offset=0, Limit=99999, SortDesc=False)
-            if "error" in d_codes: return handle_api_error(user, d_codes)
-            #d_codes = D_CODES
-            data = dict(
-                _="list",
-                id=str(int(time.time())),
-                path="w",
-                type="code",
-                raw=d_codes,
-                current_page=0
-            )
-            data["pages_count"] = math.ceil(len(data["raw"])/10)
-            data["title_ne"] = TEXT["list_code_ne"]
-            data["title"] = TEXT["list_code"]
-            TEMP_DATA[user.user_id] = data
-            text, keyboard = get_list_msg(user, data)
-            bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
-            if keyboard is not None: # not good
-                user.status = "list" + data["id"]
-                user.save()
-        elif message.text == TEXT["s_b1"]:
-            kb_t, kb_d = [], []
-            for k, v in config.LANGUAGES.items():
-                kb_t.append([v])
-                kb_d.append(["s_b1_"+k])
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b1_"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
-        elif message.text == TEXT["s_b2"]:
-            pass
-        elif message.text == TEXT["s_b3"]:
-            bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3_"], parse_mode="HTML")
-            user.status = "s_b3"
+    if message.text in (TEXT["cancel_btn"], TEXT["back_btn"]):
+        reply_start(message)
+    elif message.text == TEXT["m_b1"]:
+        if user.status != "m": reset_user_data(user)
+        send_exchange(user)
+    elif message.text == TEXT["m_b2"]:
+        text, keyboard = get_w_msg(user)
+        bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["m_b3"]:
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["s"],
+                   reply_markup=bot.create_keyboard([[TEXT["s_b2"], TEXT["s_b3"]], [TEXT["back_btn"], TEXT["s_b1"]]]),
+                   parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b1"]:
+        text, keyboard = get_w_b1_msg(user)
+        bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b2"]:
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_"],
+                   reply_markup=bot.create_keyboard([[TEXT["w_b2_b1"]], [TEXT["w_b2_b2"]], [TEXT["cancel_btn"]]]),
+                   parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b4"]:
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b4_"], reply_markup=bot.create_keyboard(
+            [[TEXT["w_b4_b1"], TEXT["w_b4_b2"]], [TEXT["w_b4_b3"], TEXT["w_b4_b4"]], [TEXT["cancel_btn"]]],
+            one_time=False), parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b2_b1"]:
+        d_accounts = client.post("Account/GetUserBalances", data="sss")
+        if "error" in d_accounts: return handle_api_error(user, d_accounts)
+        currs = set()
+        for account in d_accounts["userAccountList"]:
+            for balance in account["balanceList"]:
+                currs.add(balance["currencyTitle"])
+        kb_t = []
+        kb_d = []
+        for row in utils.chunks(list(currs), 3):
+            kb_t.append([x for x in row])
+            kb_d.append(["w_b2_b1" + x for x in row])
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b1_1"], reply_markup=bot.create_keyboard(kb_t, kb_d),
+                   parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b2_b2"]:
+        d_accounts = client.post("Account/GetUserBalances", data="sss")
+        if "error" in d_accounts: return handle_api_error(user, d_accounts)
+        currs = set()
+        for account in d_accounts["userAccountList"]:
+            for balance in account["balanceList"]:
+                currs.add(balance["currencyTitle"])
+        kb_t = []
+        kb_d = []
+        for row in utils.chunks(list(currs), 3):
+            kb_t.append([x for x in row])
+            kb_d.append(["w_b2_b2" + x for x in row])
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["w_b2_b2_1"], reply_markup=bot.create_keyboard(kb_t, kb_d),
+                   parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b4_b1"]:
+        data = dict(
+            _="list",
+            id=str(int(time.time())),
+            path="w",
+            type="transaction",
+            current_page=0,
+            api_path="Account/GetUserTransactions",
+            api_params=dict(Offset=0, Limit=99999, SortDesc=False)
+        )
+        d_transactions = client.post(data["api_path"], **data["api_params"])
+        if "error" in d_transactions: return handle_api_error(user, d_transactions)
+        data["raw"] = d_transactions.get("transactionList", [])
+        # data["raw"] = D_TRANS["transactionList"]
+        data["pages_count"] = math.ceil(len(data["raw"]) / 10)
+        data["title_ne"] = TEXT["list_transaction_ne"]
+        data["title"] = TEXT["list_transaction"]
+        TEMP_DATA[user.user_id] = data
+        text, keyboard = get_list_msg(user, data)
+        bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        if keyboard is not None:  # not good
+            user.status = "list" + data["id"]
             user.save()
-        else:
-            if not try_redeem_code(user, message.text):
-                reply_start(message)
+        elif user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b4_b2"]:
+        data = dict(
+            _="list",
+            id=str(int(time.time())),
+            path="w",
+            type="trade",
+            current_page=0,
+            api_path="Account/GetUserTrades",
+            api_params=dict(Offset=0, Limit=99999, SortDesc=False)
+        )
+        d_trades = client.post(data["api_path"], **data["api_params"])
+        if "error" in d_trades: return handle_api_error(user, d_trades)
+        data["raw"] = d_trades
+        # data["raw"] = D_TRADES
+        data["pages_count"] = math.ceil(len(data["raw"]) / 10)
+        data["title_ne"] = TEXT["list_trade_ne"]
+        data["title"] = TEXT["list_trade"]
+        TEMP_DATA[user.user_id] = data
+        text, keyboard = get_list_msg(user, data)
+        bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        if keyboard is not None:  # not good
+            user.status = "list" + data["id"]
+            user.save()
+        elif user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b4_b3"]:
+        data = dict(
+            _="list",
+            id=str(int(time.time())),
+            path="w",
+            type="address",
+            current_page=0,
+            api_path="Transaction/GetUserAddressList",
+            api_params={"limit": 99999, "offset": 0, "sort": "dateCreated", "searchString": "", "address": "",
+                        "publicKey": "", "tagMessage": "", "amountFrom": "", "amountTo": "",
+                        "transactionsCountFrom": "", "transactionsCountTo": "", "isUsed": None, "currencyIdList": []}
+        )
+        d_addresses = client.post(data["api_path"], **data["api_params"])
+        if "error" in d_addresses: return handle_api_error(user, d_addresses)
+        data["raw"] = d_addresses.get("addressList", [])
+        # data["raw"] = D_ADDR["addressList"]
+        data["pages_count"] = math.ceil(len(data["raw"]) / 10)
+        data["title_ne"] = TEXT["list_address_ne"]
+        data["title"] = TEXT["list_address"]
+        TEMP_DATA[user.user_id] = data
+        text, keyboard = get_list_msg(user, data)
+        bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        if keyboard is not None:  # not good
+            user.status = "list" + data["id"]
+            user.save()
+        elif user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["w_b4_b4"]:
+        return
+        d_codes = client.post("Account/GetUserTrades", Offset=0, Limit=99999, SortDesc=False)
+        if "error" in d_codes: return handle_api_error(user, d_codes)
+        # d_codes = D_CODES
+        data = dict(
+            _="list",
+            id=str(int(time.time())),
+            path="w",
+            type="code",
+            raw=d_codes,
+            current_page=0
+        )
+        data["pages_count"] = math.ceil(len(data["raw"]) / 10)
+        data["title_ne"] = TEXT["list_code_ne"]
+        data["title"] = TEXT["list_code"]
+        TEMP_DATA[user.user_id] = data
+        text, keyboard = get_list_msg(user, data)
+        bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+        if keyboard is not None:  # not good
+            user.status = "list" + data["id"]
+            user.save()
+        elif user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["s_b1"]:
+        kb_t, kb_d = [], []
+        for k, v in config.LANGUAGES.items():
+            kb_t.append([v])
+            kb_d.append(["s_b1_" + k])
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b1_"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
+        if user.status != "m": reset_user_data(user)
+    elif message.text == TEXT["s_b2"]:
+        pass
+    elif message.text == TEXT["s_b3"]:
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3_"], parse_mode="HTML")
+        user.status = "s_b3"
+        user.save()
     elif user.status[:4] == "t_sp":
         if user.status[4:7] == "_co":
             data = TEMP_DATA.get(user.user_id, None)
@@ -795,20 +815,20 @@ def text_handler(message):
                 d_chart = client.load_24hchart_image(pair)
                 if "error" in d_chart: return handle_api_error(user, d_chart)
                 bot.tg_api(bot.send_photo, message.chat.id, d_chart, TEXT["t_sp_graph"]%pair, reply_markup=bot.create_keyboard([[TEXT["back_btn"]]], [["back_t_sp_b5"+pair]]), parse_mode="HTML")
-            else:
-                if not try_redeem_code(user, message.text):
-                    if user.status[4:7] == "_mo":
-                        text, keyboard = get_t_sp_mo_msg(user, pair)
-                    else:
-                        text, keyboard = get_t_sp_msg(user, pair)
-                    bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
+            elif not try_redeem_code(user, message.text):
+                if user.status[4:7] == "_mo":
+                    text, keyboard = get_t_sp_mo_msg(user, pair)
+                else:
+                    text, keyboard = get_t_sp_msg(user, pair)
+                bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 return
             user.status = "t_sp" + pair
             user.save()
     elif user.status == "w_b2_b1":
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "w_b2_b1"):
-            reply_start(message)
+            if not try_redeem_code(user, message.text):
+                reply_start(message)
             return
         for _ in (None, ):
             if data["Address"] is None:
@@ -840,14 +860,14 @@ def text_handler(message):
             return
         bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
         TEMP_DATA.pop(user.user_id, None)
-        user.status = "m"
-        user.save()
         text, keyboard = get_w_msg(user)
         bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
+        reset_user_data(user)
     elif user.status == "w_b2_b2":
         data = TEMP_DATA.get(user.user_id, None)
         if (data is None) or (data["_"] != "w_b2_b2"):
-            reply_start(message)
+            if not try_redeem_code(user, message.text):
+                reply_start(message)
             return
         for _ in (None, ):
             if data["Amount"] is None:
@@ -883,19 +903,15 @@ def text_handler(message):
             return
         # canceled
         bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
-        TEMP_DATA.pop(user.user_id, None)
-        user.status = "m"
-        user.save()
         text, keyboard = get_w_msg(user)
         bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
+        reset_user_data(user)
     elif user.status == "s_b3":
         if message.text == "0":
             bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
-            TEMP_DATA.pop(user.user_id, None)
-            user.status = "m"
-            user.save()
             text, keyboard = get_w_msg(user)
             bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
+            reset_user_data(user)
             return
         data = TEMP_DATA.get(user.user_id, None)
         if (data is not None) and (data["_"] == "s_b3") and ("params" in data):
@@ -977,8 +993,10 @@ def text_handler(message):
             if keyboard is None:
                 keyboard = bot.create_keyboard([[TEXT["back_btn"]]], [["listB" + data["id"]]])
             bot.tg_api(bot.send_message, message.from_user.id, text, reply_markup=keyboard, parse_mode="HTML")
-        else:
+        elif not try_redeem_code(user, message.text):
             reply_start(message)
+    elif not try_redeem_code(user, message.text):
+        reply_start(message)
 
 
 # request handling

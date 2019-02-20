@@ -1,5 +1,6 @@
 import sys
 import logging
+from copy import deepcopy
 from datetime import datetime
 import dateparser
 from threading import Thread
@@ -49,8 +50,31 @@ def setup_logger(logger, level, filename):
     sh = logging.StreamHandler(sys.stdout)
     sh.setLevel(level)
     sh.setFormatter(formatter_console)
-    logging.basicConfig(format=formatter, level=level, handlers=[fh, sh])
+    #logging.basicConfig(format=formatter, level=level, handlers=[fh, sh])
     logger.setLevel(level)
     logger.addHandler(fh)
     logger.addHandler(sh)
     return logger
+
+
+
+def _r_hash_list(l):
+    for i in range(len(l)):
+        if isinstance(l[i], dict):
+            l[i] = _r_hash_dict(l[i])
+        elif isinstance(l[i], list):
+            l[i] = _r_hash_list(l[i])
+    return tuple(l)
+
+
+def _r_hash_dict(d):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            d[k] = _r_hash_dict(v)
+        elif isinstance(v, list):
+            d[k] = _r_hash_list(v)
+    return tuple(sorted(d.items()))
+
+
+def to_hashable_dict(d):
+    return _r_hash_dict(deepcopy(d))
