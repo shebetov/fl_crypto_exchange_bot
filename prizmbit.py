@@ -63,7 +63,7 @@ class PrizmBitAPI:
                 "X-Signature": hmac.new(self.c_secret, params.encode('utf8'), hashlib.sha256).hexdigest()
             }
         )
-        print(path + " -> " + str(r._content))
+        print(path + "("+params+") -> " + str(r._content))
         if r.status_code != 200: return None
         try:
             return r.json()

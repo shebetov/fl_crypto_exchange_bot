@@ -240,7 +240,7 @@ def get_t_sp_mo_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
     if "error" in d_my_orders: return handle_api_error(user, d_my_orders)
-    d_my_orders = D_ORD
+    #d_my_orders = D_ORD
     if len(d_my_orders) == 0:
         return TEXT["t_sp_mo1"] % pair, None
     else:
@@ -651,7 +651,7 @@ def text_handler(message):
             d_addresses = client.post(data["api_path"], **data["api_params"])
             if "error" in d_addresses: return handle_api_error(user, d_addresses)
             data["raw"] = d_addresses.get("addressList", [])
-            data["raw"] = D_ADDR["addressList"]
+            #data["raw"] = D_ADDR["addressList"]
             data["pages_count"] = math.ceil(len(data["raw"])/10)
             data["title_ne"] = TEXT["list_address_ne"]
             data["title"] = TEXT["list_address"]
