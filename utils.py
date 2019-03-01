@@ -21,6 +21,10 @@ def replace_markdown(t: str) -> str:
     return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def unix_to_str(x):
+    return datetime.utcfromtimestamp(x).strftime('%d.%m.%Y %H:%M:%S')
+
+
 def threaded(daemon=False):
     def threaded_dec(func):
         def threaded_func(*args, **kwargs):

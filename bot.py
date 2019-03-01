@@ -18,6 +18,7 @@ from datetime import datetime
 import decimal
 from text_data import TEXT_ALL
 import math
+from copy import deepcopy
 import pandas
 import dateparser
 import telebot
@@ -215,9 +216,9 @@ def get_list_msg(user, data):
         kb_d = []
         list_index = 10 * data["current_page"]
         if data["type"] == "transaction":
-            page = [TEXT["w_th_row"] % (i+1+list_index, x["transactionStatus"], x["currencyTitle"], x["amount"], x["date"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["w_th_row"] % (i+1+list_index, x["transactionStatus"], x["currencyTitle"], x["amount"], utils.unix_to_str(x["date"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         elif data["type"] == "trade":
-            page = [TEXT["t_sp_mt_row"] % (i+1+list_index, TEXT[{0: "t_sp_mt_buy", 1: "t_sp_mt_sell"}[x["side"]]], x["amount"], x["price"], x["dateCreated"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["t_sp_mt_row"] % (i+1+list_index, TEXT[{0: "t_sp_mt_buy", 1: "t_sp_mt_sell"}[x["side"]]], x["amount"], x["price"], utils.unix_to_str(x["dateCreated"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         elif data["type"] == "address":
             page = [TEXT["list_address_row"] % (i+1, x["currencyTitle"], x["address"], x["publicKey"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         text += "\n\n" + "\n".join([row for row in page])
@@ -501,13 +502,20 @@ def callback_inline_handler(call):
             return
         elif action == "C" or action == "E":
             columns = tuple()
+            data_raw = deepcopy(data["raw"])
             if data["type"] == "transaction":
                 columns = ("date", "id", "ConfirmationId", "currencyTitle", "transactionStatus", "amount", "destination", "destinationPublicKey", "cryptoTxId", "transactionType", "method")
+                for i in range(len(data_raw)):
+                    data_raw[i]["date"] = utils.unix_to_str(data_raw[i]["date"])
             elif data["type"] == "trade":
                 columns = ("dateCreated", "tradeId", "orderId", "cliOrdId", "marketName", "side", "amount", "price", "fee", "feeCurrency")
+                for i in range(len(data_raw)):
+                    data_raw[i]["dateCreated"] = utils.unix_to_str(data_raw[i]["dateCreated"])
             elif data["type"] == "address":
                 columns = ("currencyTitle", "address", "publicKey", "label", "amount", "transactionsCount", "dateCreated")
-            df = pandas.DataFrame(data["raw"], columns=columns)
+                for i in range(len(data_raw)):
+                    data_raw[i]["dateCreated"] = utils.unix_to_str(data_raw[i]["dateCreated"])
+            df = pandas.DataFrame(data_raw, columns=columns)
             if action == "C":
                 df.to_csv("files/import.csv")
                 bot.tg_api(bot.send_document, user.user_id, open("files/import.csv", "rb"))
