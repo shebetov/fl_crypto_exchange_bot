@@ -258,7 +258,6 @@ def get_t_sp_mo_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
     if "error" in d_my_orders: return handle_api_error(user, d_my_orders)
-    d_my_orders = D_ORD
     if len(d_my_orders) == 0:
         return TEXT["t_sp_mo1"] % pair, None
     else:
@@ -658,7 +657,6 @@ def text_handler(message):
         d_trades = client.post(data["api_path"], **data["api_params"])
         if "error" in d_trades: return handle_api_error(user, d_trades)
         data["raw"] = d_trades
-        # data["raw"] = D_TRADES
         data["pages_count"] = math.ceil(len(data["raw"]) / 10)
         data["title_ne"] = TEXT["list_trade_ne"]
         data["title"] = TEXT["list_trade"]
@@ -682,7 +680,6 @@ def text_handler(message):
                         "transactionsCountFrom": "", "transactionsCountTo": "", "isUsed": None, "currencyIdList": []}
         )
         d_addresses = client.post(data["api_path"], **data["api_params"])
-        d_addresses = D_ADDR
         if "error" in d_addresses: return handle_api_error(user, d_addresses)
         data["raw"] = d_addresses.get("addressList", [])
         # data["raw"] = D_ADDR["addressList"]
@@ -700,7 +697,6 @@ def text_handler(message):
         return
         d_codes = client.post("Account/GetUserTrades", Offset=0, Limit=99999, SortDesc=False)
         if "error" in d_codes: return handle_api_error(user, d_codes)
-        # d_codes = D_CODES
         data = dict(
             _="list",
             id=str(int(time.time())),
@@ -814,7 +810,6 @@ def text_handler(message):
                 d_trades = client.post(data["api_path"], **data["api_params"])
                 if "error" in d_trades: return handle_api_error(user, d_trades)
                 data["raw"] = d_trades
-                #data["raw"] = D_TRADES
                 data["pages_count"] = math.ceil(len(data["raw"])/10)
                 data["title_ne"] = TEXT["list_trade1_ne"] % pair
                 data["title"] = TEXT["list_trade1"] % pair
@@ -979,7 +974,6 @@ def text_handler(message):
                 d_trades = client.post(data["api_path"], **data["api_params"])
                 if "error" in d_trades: return handle_api_error(user, d_trades)
                 data["raw"] = d_trades
-                #data["raw"] = D_TRADES
             elif data["type"] == "transaction":
                 d_transactions = client.post(data["api_path"], **data["api_params"])
                 if "error" in d_transactions: return handle_api_error(user, d_transactions)
