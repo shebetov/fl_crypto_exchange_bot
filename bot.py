@@ -216,11 +216,11 @@ def get_list_msg(user, data):
         kb_d = []
         list_index = 10 * data["current_page"]
         if data["type"] == "transaction":
-            page = [TEXT["w_th_row"] % (i+1+list_index, x["transactionStatus"], x["currencyTitle"], x["amount"], utils.unix_to_str(x["date"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["w_th_row"].format(i+1+list_index, x["transactionStatus"], x["currencyTitle"], x["amount"], utils.unix_to_str(x["date"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         elif data["type"] == "trade":
-            page = [TEXT["t_sp_mt_row"] % (i+1+list_index, TEXT[{0: "t_sp_mt_buy", 1: "t_sp_mt_sell"}[x["side"]]], x["amount"], x["price"], utils.unix_to_str(x["dateCreated"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["t_sp_mt_row"].format(i+1+list_index, TEXT[{0: "t_sp_mt_buy", 1: "t_sp_mt_sell"}[x["side"]]], x["amount"], x["price"], utils.unix_to_str(x["dateCreated"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         elif data["type"] == "address":
-            page = [TEXT["list_address_row"] % (i+1, x["currencyTitle"], x["address"], x["publicKey"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["list_address_row"].format(i+1, x["currencyTitle"], x["address"], x["publicKey"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         text += "\n\n" + "\n".join([row for row in page])
         if data["pages_count"] > 1:
             text += "\n\n%s %i/%i" % (TEXT["list_page"], data["current_page"]+1, data["pages_count"])
