@@ -238,11 +238,19 @@ def get_t_sp_msg(user, pair):
     if "error" in d_ticker: return handle_api_error(user, d_ticker)
     d_orderbook = client.get("MarketData/GetOrderBook", market=pair, limit=4)
     if "error" in d_orderbook: return handle_api_error(user, d_orderbook)
-    return (TEXT["t_sp"] % (
-        pair, d_ticker["price"], d_ticker["low"], d_ticker["high"], d_ticker["volume"], d_ticker["price"],
-        "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
-        "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["bids"]])
-    )), bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_b1"]]], [["back_t_sp", "t_sp_b1" + pair]])
+    if user.lang == "en":
+        base_symbol = d_ticker["symbol"].split("/", 1)[0]
+        return (TEXT["t_sp"] % (
+            pair, d_ticker["price"], d_ticker["low"], d_ticker["high"], d_ticker["volume"], d_ticker["priceChange"],
+            base_symbol, "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
+            base_symbol, "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["bids"]])
+        )), bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_b1"]]], [["back_t_sp", "t_sp_b1" + pair]])
+    else:
+        return (TEXT["t_sp"] % (
+            pair, d_ticker["price"], d_ticker["low"], d_ticker["high"], d_ticker["volume"], d_ticker["priceChange"],
+            "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["asks"]]),
+            "\n".join(["{:<13}  {:<13}".format(x["price"], x["quantity"]) for x in d_orderbook["bids"]])
+        )), bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_b1"]]], [["back_t_sp", "t_sp_b1" + pair]])
 
 
 def get_t_sp_mo_msg(user, pair):
@@ -275,9 +283,9 @@ def get_t_co_msg(user, data):
     elif data["OrderSide"] == "Sell":
         t_sell = "*" + t_sell + "*"
     keyboard = bot.create_keyboard(
-        [[t_buy, t_sell], [TEXT["t_sp_co_b3"] % data["OrderType"]], [TEXT["t_sp_co_b4"] % data["AccountType"]],
+        [[t_buy, t_sell], [TEXT["t_sp_co_b3"] % data["OrderType"]],
          [TEXT["cancel_btn"], TEXT["t_sp_co_b5"]]],
-        [["t_sp_co_b1", "t_sp_co_b2"], ["t_sp_co_b3"], ["t_sp_co_b4"], ["back_t_sp_co" + data["Market"], "t_sp_co_b5"]]
+        [["t_sp_co_b1", "t_sp_co_b2"], ["t_sp_co_b3"], ["back_t_sp_co" + data["Market"], "t_sp_co_b5"]]
     )
     return TEXT["t_sp_co"] % data["Market"], keyboard
 
@@ -401,10 +409,6 @@ def callback_inline_handler(call):
                 elif btn == "3":
                     data["OrderType"] = config.ORDER_TYPE_CHOICES[
                         (config.ORDER_TYPE_CHOICES.index(data["OrderType"]) + 1) % (len(config.ORDER_TYPE_CHOICES))]
-                elif btn == "4":
-                    data["AccountType"] = config.ACCOUNT_TYPE_CHOICES[
-                        (config.ACCOUNT_TYPE_CHOICES.index(data["AccountType"]) + 1) % (
-                            len(config.ACCOUNT_TYPE_CHOICES))]
                 elif btn == "5":
                     if data["OrderSide"] is None:
                         bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_co_e1"], show_alert=True)
@@ -414,8 +418,7 @@ def callback_inline_handler(call):
                         user.save()
                     return
                 text, keyboard = get_t_co_msg(user, data)
-                bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
-                           reply_markup=keyboard, parse_mode="HTML", ignore_exc=True)
+                bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="HTML", ignore_exc=True)
                 return
             elif call.data[4:10] == "_mo_b1":
                 pair = call.data[10:]
