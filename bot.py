@@ -216,11 +216,11 @@ def get_list_msg(user, data):
         kb_d = []
         list_index = 10 * data["current_page"]
         if data["type"] == "transaction":
-            page = [TEXT["w_th_row"].format(i+1+list_index, x["transactionStatus"], x["currencyTitle"], x["amount"], utils.unix_to_str(x["date"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["w_th_row"].format(i+1+list_index, config.TRANSACTION_TYPE_CHOICES[x["transactionStatus"]], x["currencyTitle"], x["amount"], x["date"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         elif data["type"] == "trade":
             page = [TEXT["t_sp_mt_row"].format(i+1+list_index, TEXT[{0: "t_sp_mt_buy", 1: "t_sp_mt_sell"}[x["side"]]], x["amount"], x["price"], utils.unix_to_str(x["dateCreated"])) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         elif data["type"] == "address":
-            page = [TEXT["list_address_row"].format(i+1, x["currencyTitle"], x["address"], x["publicKey"]) for i, x in enumerate(data["raw"][list_index:list_index+10])]
+            page = [TEXT["list_address_row"].format(i+1, x["currencyTitle"], x["address"], ("Public Key: " + x["publicKey"] if x["publicKey"] else "")) for i, x in enumerate(data["raw"][list_index:list_index+10])]
         text += "\n\n" + "\n".join([row for row in page])
         if data["pages_count"] > 1:
             text += "\n\n%s %i/%i" % (TEXT["list_page"], data["current_page"]+1, data["pages_count"])
@@ -258,20 +258,21 @@ def get_t_sp_mo_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
     if "error" in d_my_orders: return handle_api_error(user, d_my_orders)
-    #d_my_orders = D_ORD
+    d_my_orders = D_ORD
     if len(d_my_orders) == 0:
         return TEXT["t_sp_mo1"] % pair, None
     else:
         text = TEXT["t_sp_mo"] % pair + "\n"
         for i, order in enumerate(d_my_orders):
             text += "\n" + TEXT["t_sp_mo_row"] % (
-            order["id"], TEXT[{0: "t_sp_mo_buy", 1: "t_sp_mo_sell"}[order["side"]]], order["orderType"], order["leavesQty"])
+            order["id"], TEXT[{0: "t_sp_mo_buy", 1: "t_sp_mo_sell"}[order["side"]]], config.ORDER_GET_TYPE_CHOICES[order["orderType"]], order["leavesQty"])
             if order["price"]:
                 text += " " + TEXT["t_sp_mo_1"] + ": " + str(order["price"])
             if order["stopPrice"]:
                 text += " " + TEXT["t_sp_mo_2"] + ": " + str(order["stopPrice"])
             if order["limitPrice"]:
                 text += " " + TEXT["t_sp_mo_3"] + ": " + str(order["limitPrice"])
+            text += "</code>"
         return text, bot.create_keyboard([[TEXT["back_btn"], TEXT["t_sp_mo_b1"]]], [["back_t_sp_mo" + pair, "t_sp_mo_b1" + pair]])
 
 
@@ -505,8 +506,6 @@ def callback_inline_handler(call):
             data_raw = deepcopy(data["raw"])
             if data["type"] == "transaction":
                 columns = ("date", "id", "ConfirmationId", "currencyTitle", "transactionStatus", "amount", "destination", "destinationPublicKey", "cryptoTxId", "transactionType", "method")
-                for i in range(len(data_raw)):
-                    data_raw[i]["date"] = utils.unix_to_str(data_raw[i]["date"])
             elif data["type"] == "trade":
                 columns = ("dateCreated", "tradeId", "orderId", "cliOrdId", "marketName", "side", "amount", "price", "fee", "feeCurrency")
                 for i in range(len(data_raw)):
@@ -683,6 +682,7 @@ def text_handler(message):
                         "transactionsCountFrom": "", "transactionsCountTo": "", "isUsed": None, "currencyIdList": []}
         )
         d_addresses = client.post(data["api_path"], **data["api_params"])
+        d_addresses = D_ADDR
         if "error" in d_addresses: return handle_api_error(user, d_addresses)
         data["raw"] = d_addresses.get("addressList", [])
         # data["raw"] = D_ADDR["addressList"]
@@ -781,7 +781,6 @@ def text_handler(message):
                     order_id = int(message.text)
                     d_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
                     if "error" in d_orders: return handle_api_error(user, d_orders)
-                    #d_orders = D_ORD
                     if order_id in [x["id"] for x in d_orders]:
                         d_cancel_order = client.post("Trade/CancelOrder", OrderId=order_id)
                         if "error" in d_cancel_order: return handle_api_error(user, d_cancel_order)
