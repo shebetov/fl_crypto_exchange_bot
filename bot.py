@@ -760,7 +760,7 @@ def text_handler(message):
                 text, keyboard = get_t_sp_msg(user, pair)
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 del data["_"]
-                d_create_order = client.post("Trade/TestOrder", **data)
+                d_create_order = client.post("Trade/CreateOrder", **data)
                 if "error" in d_create_order: return handle_api_error(user, d_create_order)
                 TEMP_DATA.pop(user.user_id, None)
             else:
