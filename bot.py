@@ -204,7 +204,7 @@ def send_exchange(user):
             kb_d[-1].append("t_sp" + x)
     d_market_prices = client.get("MarketData/GetMarketPrices")
     if "error" in d_market_prices: return handle_api_error(user, d_market_prices)
-    text_market_prices = "\n".join(["<b>%s</b> %s, 24hr: (%s), L%s, H%s, V%s" % (pair["marketName"], pair["price"], str(decimal.Decimal(pair["priceChange"]).quantize(decimal.Decimal('.01'))), pair["lowPrice"], pair["highPrice"], pair["volume"]) for pair in d_market_prices])
+    text_market_prices = "\n".join(["<b>%s</b> %s, 24hr: (%+.2f%%), L%s, H%s, V%s" % (pair["marketName"], pair["price"], float(pair["priceChange"]), pair["lowPrice"], pair["highPrice"], pair["volume"]) for pair in d_market_prices])
     bot.tg_api(bot.send_message, user.user_id, TEXT_ALL[user.lang]["t"] % text_market_prices, reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
 
 
