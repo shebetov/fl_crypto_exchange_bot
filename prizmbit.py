@@ -10,6 +10,7 @@ from image_upload import upload_image
 from cachetools.func import ttl_cache
 import websocket
 import threading
+import config
 
 
 logger = logging.getLogger("prizmbitbot")
@@ -103,7 +104,7 @@ class PrizmBitAPI:
 class PrizmBitWebsocket:
     # Don't grow a table larger than this amount. Helps cap memory usage.
     MAX_TABLE_LEN = 200
-    URL = "wss://wss.prizmbit.com/"
+    URL = config.PRIZMBIT_WSS_URL
     _all_wss = []
 
     def __init__(self, init_data):
