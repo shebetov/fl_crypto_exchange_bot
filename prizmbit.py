@@ -82,6 +82,9 @@ class PrizmBitAPI:
     def post(self, path, **params):
         return self._request("post", path, **params)
 
+    def put(self, path, **params):
+        return self._request("put", path, **params)
+
     @ttl_cache(ttl=5)
     def load_24hchart_image(self, pair):
         t = int(time.time())

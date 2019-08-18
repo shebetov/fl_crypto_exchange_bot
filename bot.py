@@ -142,6 +142,7 @@ t_sp_co4 - enter LimitPrice
 t_sp_mo - view my orders by pair
 w_b2_b1 - создание withdraw
 w_b2_b2 - создание code
+s_b2 - привязка аккаунта
 s_b3 - верификация
 list{id} - просмотр списка и его id в TEMP_DATA
 
@@ -723,7 +724,9 @@ def text_handler(message):
         bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b1_"], reply_markup=bot.create_keyboard(kb_t, kb_d), parse_mode="HTML")
         if user.status != "m": reset_user_data(user)
     elif message.text == TEXT["s_b2"]:
-        pass
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b2_"], parse_mode="HTML")
+        user.status = "s_b2"
+        user.save()
     elif message.text == TEXT["s_b3"]:
         bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b3_"], parse_mode="HTML")
         user.status = "s_b3"
@@ -914,6 +917,12 @@ def text_handler(message):
         text, keyboard = get_w_msg(user)
         bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         reset_user_data(user)
+    elif user.status == "s_b2":
+        r = client.put("Account/SetTelegramId", code=message.text, telegramId=user.user_id)
+        if "error" not in r: return handle_api_error(user, r)
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b2_1"], parse_mode="HTML")
+        reset_user_data(user)
+        reply_start(message)
     elif user.status == "s_b3":
         if message.text == "0":
             bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
