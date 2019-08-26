@@ -919,8 +919,9 @@ def text_handler(message):
         reset_user_data(user)
     elif user.status == "s_b2":
         r = client.put("Account/SetTelegramId", code=message.text, telegramId=user.user_id)
-        if "error" not in r: return handle_api_error(user, r)
-        bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b2_1"], parse_mode="HTML")
+        r = {"code": "A1B2C3", "codeExpiration": "2019-08-26T11:34:30.314Z"}
+        if "error" in r: return handle_api_error(user, r)
+        bot.tg_api(bot.send_message, message.chat.id, TEXT["s_b2_1"].format(r["code"]), parse_mode="HTML")
         reset_user_data(user)
         reply_start(message)
     elif user.status == "s_b3":
