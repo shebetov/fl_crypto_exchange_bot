@@ -237,9 +237,9 @@ def get_list_msg(user, data):
 def get_t_sp_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_ticker = client.get("MarketData/GetTicker", marketName=pair)
-    if "error" in d_ticker: return handle_api_error(user, d_ticker)
+    if "error" in d_ticker: return handle_api_error(user, d_ticker), None
     d_orderbook = client.get("MarketData/GetOrderBook", market=pair, limit=4)
-    if "error" in d_orderbook: return handle_api_error(user, d_orderbook)
+    if "error" in d_orderbook: return handle_api_error(user, d_orderbook), None
     if user.lang == "en":
         base_symbol = d_ticker["symbol"].split("/", 1)[0]
         return (TEXT["t_sp"] % (
@@ -258,7 +258,7 @@ def get_t_sp_msg(user, pair):
 def get_t_sp_mo_msg(user, pair):
     TEXT = TEXT_ALL[user.lang]
     d_my_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
-    if "error" in d_my_orders: return handle_api_error(user, d_my_orders)
+    if "error" in d_my_orders: return handle_api_error(user, d_my_orders), None
     if len(d_my_orders) == 0:
         return TEXT["t_sp_mo1"] % pair, None
     else:
@@ -308,7 +308,7 @@ def get_w_b1_msg(user, is_generate_new=False):
     is_generate_new = "t" if is_generate_new else "f"
     TEXT = TEXT_ALL[user.lang]
     d_accounts = client.post("Account/GetUserBalances", data="sss")
-    if "error" in d_accounts: return handle_api_error(user, d_accounts)
+    if "error" in d_accounts: return handle_api_error(user, d_accounts), None
     kb_t = []
     kb_d = []
     is_one_account = len(d_accounts["userAccountList"]) == 1
@@ -327,7 +327,7 @@ def get_w_b1_msg(user, is_generate_new=False):
 def get_w_msg(user):
     TEXT = TEXT_ALL[user.lang]
     d_balances = client.post("Account/GetUserBalances", data="sss")
-    if "error" in d_balances: return handle_api_error(user, d_balances)
+    if "error" in d_balances: return handle_api_error(user, d_balances), None
     s = ""
     for account in d_balances["userAccountList"]:
         s += "\n%s %s" % (TEXT["w2"], account["accountType"])
@@ -392,6 +392,7 @@ def callback_inline_handler(call):
             if call.data[4:7] == "_b1":
                 pair = call.data[7:]
                 text, keyboard = get_t_sp_msg(user, pair)
+                if text is None: return
                 try:
                     bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id,
                                reply_markup=keyboard, parse_mode="HTML", ignore_exc=True, drop_exc=True)
@@ -426,6 +427,7 @@ def callback_inline_handler(call):
                 pair = call.data[10:]
                 bot.tg_api(bot.answer_callback_query, call.id, TEXT["t_sp_mo_b1_"])
                 text, keyboard = get_t_sp_msg(user, pair)
+                if text is None: return
                 bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
                 d_all_orders = client.post("Account/OpenOrders", All=False, Market=pair, Limit=99999, Offset=0)
@@ -444,6 +446,7 @@ def callback_inline_handler(call):
             user.status = "t_sp" + pair
             user.save()
             text, keyboard = get_t_sp_msg(user, pair)
+            if text is None: return
             bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
         else:
             reply_start(user=user)
@@ -457,6 +460,7 @@ def callback_inline_handler(call):
                 bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=bot.create_keyboard([[TEXT["back_btn"]]], [["back_w_b1_"]]), parse_mode="HTML")
             elif call.data[5:7] == "b2":
                 text, keyboard = get_w_b1_msg(user, (not call.data[7] == "t"))
+                if text is None: return
                 bot.tg_api(bot.edit_message_text, text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="HTML")
         elif call.data[1:7] == "_b2_b1":
             bot.tg_api(bot.send_message, call.message.chat.id, TEXT["w_b2_b1_2"], parse_mode="HTML")
@@ -490,12 +494,14 @@ def callback_inline_handler(call):
         elif action == "B":
             if data["path"] == "w":
                 text, keyboard = get_w_msg(user)
+                if text is None: return
                 bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
                 reset_user_data(user)
             elif data["path"][0] == "t":
                 pair = data["path"][1:]
-                t, kb = get_t_sp_msg(user, pair)
-                bot.tg_api(bot.send_message, call.message.chat.id, t, reply_markup=kb, parse_mode="HTML")
+                text, keyboard = get_t_sp_msg(user, pair)
+                if text is None: return
+                bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 TEMP_DATA.pop(user.user_id, None)
                 user.status = "t_sp" + pair
                 user.save()
@@ -531,6 +537,7 @@ def callback_inline_handler(call):
         elif path[:7] in ("t_sp_mo", "t_sp_b5", "t_sp_co"):
             pair = path[7:]
             text, keyboard = get_t_sp_msg(user, pair)
+            if text is None: return
             bot.tg_api(bot.send_message, call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
             user.status = "t_sp" + pair
             user.save()
@@ -538,6 +545,7 @@ def callback_inline_handler(call):
             reply_start(user=user)
         elif path == "w_b1_":
             text, keyboard = get_w_msg(user)
+            if text is None: return
             bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         bot.tg_api(bot.delete_message, call.message.chat.id, call.message.message_id)
 
@@ -570,6 +578,7 @@ def text_handler(message):
         send_exchange(user)
     elif message.text == TEXT["m_b2"]:
         text, keyboard = get_w_msg(user)
+        if text is None: return
         bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         if user.status != "m": reset_user_data(user)
     elif message.text == TEXT["m_b3"]:
@@ -579,6 +588,7 @@ def text_handler(message):
         if user.status != "m": reset_user_data(user)
     elif message.text == TEXT["w_b1"]:
         text, keyboard = get_w_b1_msg(user)
+        if text is None: return
         bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
         if user.status != "m": reset_user_data(user)
     elif message.text == TEXT["w_b2"]:
@@ -741,6 +751,7 @@ def text_handler(message):
             if message.text == "0":
                 bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
                 text, keyboard = get_t_sp_msg(user, pair)
+                if text is None: return
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 TEMP_DATA.pop(user.user_id, None)
                 user.status = "t_sp" + pair
@@ -765,6 +776,7 @@ def text_handler(message):
                 user.status = "t_sp" + pair
                 user.save()
                 text, keyboard = get_t_sp_msg(user, pair)
+                if text is None: return
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 del data["_"]
                 d_create_order = client.post("Trade/CreateOrder", **data)
@@ -785,6 +797,7 @@ def text_handler(message):
                         if "error" in d_cancel_order: return handle_api_error(user, d_cancel_order)
                         bot.tg_api(bot.send_message, message.chat.id, TEXT["t_sp_mo_c"] % order_id, parse_mode="HTML")
                     text, keyboard = get_t_sp_mo_msg(user, pair)
+                    if text is None: return
                     bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                     return
             else:
@@ -795,6 +808,7 @@ def text_handler(message):
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
             elif message.text == TEXT["t_sp_b3"]:
                 text, keyboard = get_t_sp_mo_msg(user, pair)
+                if text is None: return
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 if keyboard is not None:  # not good
                     user.status = "t_sp_mo" + pair
@@ -831,6 +845,7 @@ def text_handler(message):
                     text, keyboard = get_t_sp_mo_msg(user, pair)
                 else:
                     text, keyboard = get_t_sp_msg(user, pair)
+                if text is None: return
                 bot.tg_api(bot.send_message, message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
                 return
             user.status = "t_sp" + pair
@@ -872,6 +887,7 @@ def text_handler(message):
         bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
         TEMP_DATA.pop(user.user_id, None)
         text, keyboard = get_w_msg(user)
+        if text is None: return
         bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         reset_user_data(user)
     elif user.status == "w_b2_b2":
@@ -915,6 +931,7 @@ def text_handler(message):
         # canceled
         bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
         text, keyboard = get_w_msg(user)
+        if text is None: return
         bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
         reset_user_data(user)
     elif user.status == "s_b2":
@@ -928,6 +945,7 @@ def text_handler(message):
         if message.text == "0":
             bot.tg_api(bot.send_message, message.chat.id, TEXT["canceled"], parse_mode="HTML")
             text, keyboard = get_w_msg(user)
+            if text is None: return
             bot.tg_api(bot.send_message, user.user_id, text, reply_markup=keyboard, parse_mode="HTML")
             reset_user_data(user)
             return
