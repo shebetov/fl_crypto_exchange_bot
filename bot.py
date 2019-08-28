@@ -21,7 +21,7 @@ import math
 from copy import deepcopy
 import pandas
 import dateparser
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, ConnectionError
 import telebot
 from my_tg_api import UltraTeleBot, ApiException
 import sentry_sdk
@@ -1058,7 +1058,7 @@ if __name__ == "__main__":
         while True:
             try:
                 bot.polling(none_stop=True)
-            except ReadTimeout:
+            except (ReadTimeout, ConnectionError):
                 time.sleep(3)
     else:
         bot.set_webhook(url="".join(config.HOST))
