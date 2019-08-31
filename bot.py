@@ -559,7 +559,7 @@ def reply_start(message=None, user=None):
         user = get_user(message.from_user.id)
         if user is None:
             tg_user_name = (message.from_user.first_name + ((" " + str(message.from_user.last_name)) if getattr(message.from_user, "last_name", None) else ""))
-            user = User.objects.create(user_id=message.from_user.id, name=message.from_user.first_name)
+            user, is_created = User.objects.get_or_create(user_id=message.from_user.id, name=message.from_user.first_name)
     TEXT = TEXT_ALL[user.lang]
     reply_markup = bot.create_keyboard([[TEXT["m_b1"]], [TEXT["m_b2"]], [TEXT["m_b3"]]], one_time=False)
     bot.tg_api(bot.send_message, user.user_id, TEXT["m_n"], reply_markup=reply_markup, parse_mode="HTML")
