@@ -33,7 +33,7 @@ from prizmbit import PrizmBitAPI
 
 sentry_sdk.init(dsn=config.SENTRY_API_URL, integrations=[LoggingIntegration()])
 
-bot = UltraTeleBot(config.BOT_TOKEN)
+bot = UltraTeleBot(config.BOT_TOKEN, threaded=False)
 client = PrizmBitAPI(config.CLIENT_ID, config.CLIENT_SECRET)
 
 TEMP_DATA = {}
